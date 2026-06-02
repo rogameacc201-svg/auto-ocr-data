@@ -2,66 +2,76 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>即時數據監控</title>
+    <title>即時數據 - 按日期分頁</title>
     <style>
         body { font-family: sans-serif; padding: 20px; }
-        table { border-collapse: collapse; width: 100%; max-width: 800px; margin-top: 20px; }
+        .tabs { margin-bottom: 15px; }
+        .tab-btn { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; background: #f9f9f9; }
+        .tab-btn.active { background: #007bff; color: white; }
+        table { border-collapse: collapse; width: 100%; max-width: 800px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         th { background-color: #f4f4f4; }
-        #status { color: #666; font-size: 0.9em; }
     </style>
 </head>
 <body>
-    <h1>即時數據監控系統</h1>
-    <div id="status">正在初始化資料...</div>
+    <h1>即時數據監控 (按日期分頁)</h1>
+    <div id="status">載入中...</div>
+    <div id="tab-container" class="tabs"></div>
     <table id="data-table">
-        <thead>
-            <tr id="table-head"></tr>
-        </thead>
+        <thead id="table-head"></thead>
         <tbody id="table-body"></tbody>
     </table>
 
     <script>
         const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSLh71hif9leRiu_gfg_ifAvu0n2ZwDKiOXiu6uS9TyxX3bamZt43A1bv5uqJJgq-yrNLqAd8GQ6ma3/pub?output=csv";
+        let allData = {}; // 用來存放分組後的資料
+        let currentTab = "";
 
         async function updateData() {
             try {
-                // 加上時間戳記防止瀏覽器讀到舊的快取資料
                 const response = await fetch(csvUrl + "&t=" + new Date().getTime());
-                const data = await response.text();
-                
-                const rows = data.split('\n').filter(row => row.trim() !== "");
-                const tbody = document.getElementById("table-body");
-                const thead = document.getElementById("table-head");
-                
-                tbody.innerHTML = "";
-                
-                // 處理表頭 (第一行)
+                const text = await response.text();
+                const rows = text.split('\n').filter(r => r.trim() !== "");
                 const headers = rows[0].split(',');
-                thead.innerHTML = headers.map(h => `<th>${h}</th>`).join('');
-                
-                // 處理資料行 (顯示最近的 10 筆)
-                rows.slice(-10).forEach(row => {
+
+                // 重新分類資料 (假設第一欄是日期，若無請調整索引)
+                allData = {};
+                rows.slice(1).forEach(row => {
                     const cols = row.split(',');
-                    const tr = document.createElement("tr");
-                    cols.forEach(col => {
-                        const td = document.createElement("td");
-                        td.innerText = col;
-                        tr.appendChild(td);
-                    });
-                    tbody.appendChild(tr);
+                    const dateKey = cols[0]; // 取第 1 欄作為日期標籤
+                    if (!allData[dateKey]) allData[dateKey] = [];
+                    allData[dateKey].push(cols);
                 });
-                
-                document.getElementById("status").innerText = "最後更新時間: " + new Date().toLocaleTimeString();
-            } catch (e) {
-                document.getElementById("status").innerText = "讀取資料失敗，請檢查網路。";
-                console.error(e);
-            }
+
+                renderTabs(headers);
+            } catch (e) { document.getElementById("status").innerText = "讀取失敗"; }
         }
 
-        // 每 60 秒執行一次
+        function renderTabs(headers) {
+            const container = document.getElementById("tab-container");
+            container.innerHTML = "";
+            const dates = Object.keys(allData).sort().reverse();
+            if (!currentTab || !allData[currentTab]) currentTab = dates[0];
+
+            dates.forEach(date => {
+                const btn = document.createElement("span");
+                btn.className = "tab-btn" + (currentTab === date ? " active" : "");
+                btn.innerText = date;
+                btn.onclick = () => { currentTab = date; renderTable(headers); renderTabs(headers); };
+                container.appendChild(btn);
+            });
+            renderTable(headers);
+        }
+
+        function renderTable(headers) {
+            document.getElementById("table-head").innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+            const tbody = document.getElementById("table-body");
+            tbody.innerHTML = allData[currentTab].map(row => `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+            document.getElementById("status").innerText = "最後更新: " + new Date().toLocaleTimeString();
+        }
+
         setInterval(updateData, 60000);
-        updateData(); // 頁面載入時先執行一次
+        updateData();
     </script>
 </body>
 </html>
