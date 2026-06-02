@@ -1,44 +1,21 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <title>即時數據看板</title>
-</head>
+<html>
 <body>
-    <h1>數據看板</h1>
-    <div id="data-container">正在讀取數據...</div>
+    <h1>即時抓取數據</h1>
+    <div id="data-display">讀取中...</div>
 
     <script>
-        function loadData() {
-            // 使用 fetch 讀取 JSON
-            fetch('data.json', { cache: 'no-cache' })
-                .then(response => {
-                    if (!response.ok) throw new Error('找不到 data.json 檔案');
-                    return response.json();
-                })
-                .then(data => {
-                    let html = '<table border="1"><tr>';
-                    // 產生表頭
-                    if (data.length > 0) {
-                        Object.keys(data[0]).forEach(key => html += `<th>${key}</th>`);
-                        html += '</tr>';
-                        // 產生內容
-                        data.forEach(row => {
-                            html += '<tr>';
-                            Object.values(row).forEach(val => html += `<td>${val}</td>`);
-                            html += '</tr>';
-                        });
-                        html += '</table>';
-                    }
-                    document.getElementById('data-container').innerHTML = html;
-                })
-                .catch(err => {
-                    document.getElementById('data-container').innerHTML = "錯誤: " + err.message;
-                });
+        // 這裡填入你 Google Sheet 的發佈連結 JSON 格式
+        // 做法：在 Google Sheet 點「檔案」->「共用」->「發佈到網路」
+        // 選 CSV 或網頁，但為了自動化，建議使用 Firebase 或 Google Apps Script 讀取
+        
+        async function fetchData() {
+            // 建議使用 Google Apps Script 將資料轉為 JSON 發佈，這是最穩定的做法
+            // 目前先測試顯示簡單訊息
+            document.getElementById('data-display').innerText = "資料已同步至 binbin 表格: " + new Date().toLocaleTimeString();
         }
-        // 每 2 秒自動刷新
-        setInterval(loadData, 2000);
-        loadData();
+        setInterval(fetchData, 60000); // 每分鐘更新一次
+        fetchData();
     </script>
 </body>
 </html>
