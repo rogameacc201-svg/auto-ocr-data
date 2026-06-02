@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>即時數據看板</title>
+</head>
+<body>
+    <h1>數據看板</h1>
+    <div id="data-container">正在讀取數據...</div>
+
+    <script>
+        function loadData() {
+            // 使用 fetch 讀取 JSON
+            fetch('data.json', { cache: 'no-cache' })
+                .then(response => {
+                    if (!response.ok) throw new Error('找不到 data.json 檔案');
+                    return response.json();
+                })
+                .then(data => {
+                    let html = '<table border="1"><tr>';
+                    // 產生表頭
+                    if (data.length > 0) {
+                        Object.keys(data[0]).forEach(key => html += `<th>${key}</th>`);
+                        html += '</tr>';
+                        // 產生內容
+                        data.forEach(row => {
+                            html += '<tr>';
+                            Object.values(row).forEach(val => html += `<td>${val}</td>`);
+                            html += '</tr>';
+                        });
+                        html += '</table>';
+                    }
+                    document.getElementById('data-container').innerHTML = html;
+                })
+                .catch(err => {
+                    document.getElementById('data-container').innerHTML = "錯誤: " + err.message;
+                });
+        }
+        // 每 2 秒自動刷新
+        setInterval(loadData, 2000);
+        loadData();
+    </script>
+</body>
+</html>
