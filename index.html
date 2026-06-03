@@ -1,110 +1,25 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>即時數據監控面板</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
-        .container { display: flex; gap: 20px; max-width: 1100px; margin: auto; }
-        .main-view { flex: 2; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .stats-view { flex: 1; display: flex; flex-direction: column; gap: 20px; }
-        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
-        .tab-btn { padding: 8px 12px; margin-right: 5px; cursor: pointer; border: 1px solid #999; }
-        .active { background: #007bff; color: white; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
-        th, td { border: 1px solid #eee; padding: 6px; text-align: center; }
-        th { background: #f8f8f8; }
-        h3 { margin-top: 0; color: #333; }
-    </style>
+    <title>賓果數據儀表板</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
 </head>
 <body>
-    <h1>數據監控面板</h1>
-    <div class="container">
-        <div class="main-view">
-            <div id="tabs"></div>
-            <table id="table">
-                <thead id="thead"></thead>
-                <tbody id="tbody"></tbody>
-            </table>
-        </div>
-        <div class="stats-view">
-            <div class="stats-box">
-                <h3>熱門號碼 (Top 10)</h3>
-                <table id="top-stats">
-                    <thead><tr><th>號碼</th><th>次數</th><th>佔比</th></tr></thead>
-                    <tbody id="top-body"></tbody>
-                </table>
-            </div>
-            <div class="stats-box">
-                <h3>冷門號碼 (Bottom 10)</h3>
-                <table id="bottom-stats">
-                    <thead><tr><th>號碼</th><th>次數</th><th>佔比</th></tr></thead>
-                    <tbody id="bottom-body"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    <h2>最新賓果資料</h2>
+    <table id="bingoTable"></table>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.1/papaparse.min.js"></script>
     <script>
-        const apiUrl = "https://script.google.com/macros/s/AKfycbzzT-AorCGAZZhiuwhUoq0DheCGF-J9GExxxBdlIyuMhIBWlIBkD4an1tT3mO79yINm/exec"; 
-        let allData = [];
-        let currentTab = "";
-
-        async function fetchData() {
-            try {
-                const res = await fetch(apiUrl + "?t=" + new Date().getTime());
-                allData = await res.json();
-                renderTabs();
-            } catch (e) { console.error("資料抓取失敗", e); }
-        }
-
-        function renderTabs() {
-            const dates = [...new Set(allData.slice(1).map(row => row[0]))].sort().reverse();
-            if (!currentTab) currentTab = dates[0];
-            document.getElementById('tabs').innerHTML = dates.map(d => 
-                `<button class="tab-btn ${currentTab==d?'active':''}" onclick="currentTab='${d}'; renderTable(); renderStats();">${d}</button>`
-            ).join('');
-            renderTable();
-            renderStats();
-        }
-
-        function renderTable() {
-            const headers = allData[0];
-            document.getElementById('thead').innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
-            document.getElementById('tbody').innerHTML = allData
-                .filter(row => row[0] === currentTab)
-                .map(row => `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
-        }
-
-        function renderStats() {
-            const rows = allData.filter(row => row[0] === currentTab);
-            const counts = {};
-            let totalEntries = rows.length;
-
-            rows.forEach(row => {
-                for(let i = 3; i < row.length; i++) {
-                    let num = row[i];
-                    if(num !== "" && num !== undefined) counts[num] = (counts[num] || 0) + 1;
-                }
-            });
-
-            const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
-            
-            // 取前 10 名
-            const top10 = sorted.slice(0, 10);
-            document.getElementById('top-body').innerHTML = top10.map(([num, count]) => 
-                `<tr><td>${num}</td><td>${count}</td><td>${((count/totalEntries)*100).toFixed(1)}%</td></tr>`
-            ).join('');
-
-            // 取後 10 名
-            const bottom10 = sorted.slice(-10).reverse();
-            document.getElementById('bottom-body').innerHTML = bottom10.map(([num, count]) => 
-                `<tr><td>${num}</td><td>${count}</td><td>${((count/totalEntries)*100).toFixed(1)}%</td></tr>`
-            ).join('');
-        }
-
-        setInterval(fetchData, 5000);
-        fetchData();
+        Papa.parse("data.csv", {
+            download: true,
+            header: true,
+            complete: function(results) {
+                // 將 CSV 轉換為 HTML 表格
+                // ...這裡可以撰寫簡單的 JS 將資料填入 table...
+            }
+        });
     </script>
 </body>
 </html>
