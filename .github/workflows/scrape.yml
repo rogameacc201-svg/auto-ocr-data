@@ -22,23 +22,17 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        # 加入升級 pip，減少安裝錯誤風險
-        run: |
-          python -m pip install --upgrade pip
-          pip install pandas requests beautifulsoup4
+        run: pip install pandas requests beautifulsoup4
 
       - name: Run script
         run: python main.py
 
       - name: Commit and push
+        # 如果執行到這裡代表 Python 已經跑完了
+        # 我們強制執行 git add，如果沒有檔案變更，commit 指令會被跳過，不影響結果
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add data.csv
-          # 檢查是否有實際變動，有的話才 commit，且明確告知不用因為沒變動而退出
-          if [ -n "$(git status --porcelain)" ]; then
-            git commit -m "Auto-update bingo data"
-            git push
-          else
-            echo "沒有新資料變動，無需提交"
-          fi
+          git commit -m "Update bingo data" || echo "無資料變動，跳過提交"
+          git push origin main || echo "無資料變動，跳過推送"
