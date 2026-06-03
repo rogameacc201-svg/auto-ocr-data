@@ -2,39 +2,49 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import pandas as pd
+import os
 
-url = "https://www.pilio.idv.tw/bingo/list.asp"
-headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-
-# 【修正 1】：改用更底層的 content 處理，強制處理編碼問題
-response = requests.get(url, headers=headers, timeout=20)
-content = response.content.decode('big5', errors='ignore') 
-
-soup = BeautifulSoup(content, 'html.parser')
-text_content = soup.get_text()
-
-# 【修正 2】：放寬 Regex 匹配條件
-# 改用：尋找「期別」關鍵字，後面跟著任何數字，再匹配後面的數字序列
-# 這能避開「冒號是否為全形」的問題
-pattern = re.compile(r'期別[:：]?\s*(\d+)】?\s*([\d\s,]+)')
-
-matches = pattern.findall(text_content)
-
-data = []
-for m in matches:
-    period = m[0]
-    # 清理號碼：只抓出數字，並用空格分開
-    numbers = re.findall(r'\d{2}', m[1])
+def run_scraper():
+    print("--- 開始針對新結構抓取 ---")
+    URL = "https://www.pilio.idv.tw/bingo/list.asp"
+    HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
     
-    if len(numbers) >= 20:
-        data.append([period] + numbers[:20])
+    try:
+        response = requests.get(URL, headers=HEADERS, timeout=20)
+        content = response.content.decode('big5', errors='ignore')
+        
+        # 【修正關鍵】：直接匹配冒號後面的 9 位數字期別，以及後續的號碼行
+        # \n\s* 處理換行，[\d, ]+ 匹配號碼行
+        matches = re.findall(r':\s*(\d{9})\s*\n\s*([\d, \s]{50,})', content)
+        
+        data = []
+        for period, nums_str in matches:
+            # 提取所有兩位數號碼
+            nums = re.findall(r'\d{2}', nums_str)
+            if len(nums) >= 20:
+                data.append([period] + nums[:20])
+        
+        if not data:
+            print("依然無法匹配，結構可能還有變化。")
+            return
 
-if not data:
-    print("還是抓不到，請檢查網頁內容：")
-    print(text_content[:500]) # 印出片段讓我們分析
-else:
-    cols = ['期別'] + [f'號碼{i+1}' for i in range(20)]
-    df = pd.DataFrame(data, columns=cols)
-    df.to_csv("data.csv", index=False, encoding='utf-8-sig')
-    print("成功抓取！")
-    print(df.head())
+        df = pd.DataFrame(data, columns=['期別'] + [f'號碼{i+1}' for i in range(20)])
+        
+        # 存檔邏輯 (保留舊資料)
+        file_path = "data.csv"
+        if os.path.exists(file_path):
+            old_df = pd.read_csv(file_path, dtype={'期別': str})
+            df['期別'] = df['期別'].astype(str)
+            final_df = pd.concat([df, old_df]).drop_duplicates(subset=['期別']).sort_values(by='期別', ascending=False)
+        else:
+            final_df = df.sort_values(by='期別', ascending=False)
+            
+        final_df.to_csv(file_path, index=False, encoding='utf-8-sig')
+        print(f"成功抓取！共儲存 {len(final_df)} 筆資料。")
+        print(final_df.head())
+            
+    except Exception as e:
+        print(f"執行錯誤: {e}")
+
+if __name__ == "__main__":
+    run_scraper()
