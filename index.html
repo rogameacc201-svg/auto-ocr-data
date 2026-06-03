@@ -5,12 +5,12 @@
     <title>賓果開獎統計儀表板</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        body { display: flex; font-family: sans-serif; margin: 0; background-color: #f4f7f6; }
-        #sidebar { width: 220px; padding: 20px; background: #2c3e50; color: white; height: 100vh; }
+        body { display: flex; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; background-color: #f4f7f6; }
+        #sidebar { width: 220px; padding: 20px; background: #2c3e50; color: white; height: 100vh; overflow-y: auto; }
         #main { padding: 30px; flex-grow: 1; }
-        button { width: 100%; padding: 10px; margin-bottom: 5px; cursor: pointer; background: #34495e; color: white; }
-        table { border-collapse: collapse; width: 100%; background: white; margin-bottom: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        button { width: 100%; padding: 10px; margin-bottom: 5px; cursor: pointer; background: #34495e; border: none; color: white; border-radius: 4px; }
+        table { border-collapse: collapse; width: 100%; background: white; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
     </style>
 </head>
 <body>
@@ -23,17 +23,19 @@
         Papa.parse("data.csv", {
             download: true, header: true,
             complete: function(results) {
-                const grouped = results.data.filter(r => r.日期).reduce((acc, r) => {
+                const data = results.data.filter(r => r.日期);
+                const grouped = data.reduce((acc, r) => {
                     if (!acc[r.日期]) acc[r.日期] = [];
                     acc[r.日期].push(r);
                     return acc;
                 }, {});
+                const dateList = document.getElementById('date-list');
                 Object.keys(grouped).sort().reverse().forEach(date => {
                     const btn = document.createElement('button');
                     btn.innerText = date;
                     btn.onclick = () => {
                         document.getElementById('current-date').innerText = date;
-                        let h = "<table><tr><th>期別</th><th>號碼</th></tr>";
+                        let h = "<table><tr><th>期別</th><th>開出號碼</th></tr>";
                         grouped[date].forEach(r => {
                             let nums = [];
                             for(let i=1; i<=20; i++) if(r[`號碼${i}`]) nums.push(r[`號碼${i}`]);
@@ -41,7 +43,7 @@
                         });
                         document.getElementById('draws-table').innerHTML = h + "</table>";
                     };
-                    document.getElementById('date-list').appendChild(btn);
+                    dateList.appendChild(btn);
                 });
             }
         });
