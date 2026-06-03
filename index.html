@@ -11,7 +11,8 @@
         .header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         #live-clock { font-size: 1.1em; color: #d35400; font-weight: bold; }
         #controls { margin-bottom: 20px; text-align: center; }
-        .refresh-btn { padding: 12px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; font-size: 16px; }
+        select { width: 100%; max-width: 300px; padding: 10px; font-size: 16px; margin-right: 10px; }
+        .refresh-btn { padding: 10px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; font-size: 16px; }
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
         #right-pane { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px; }
@@ -31,7 +32,8 @@
         </div>
 
         <div id="controls">
-            <button class="refresh-btn" onclick="loadData(true)">🔄 手動更新數據</button>
+            <select id="date-select" onchange="renderView(this.value)"></select>
+            <button class="refresh-btn" onclick="loadData(true)">🔄 更新數據</button>
         </div>
 
         <div class="content-wrapper">
@@ -60,7 +62,6 @@
         let allGroupedData = {};
         let currentSortedStats = [];
 
-        // 更新時鐘
         function updateClock() {
             const now = new Date();
             document.getElementById('live-clock').innerText = "系統時間: " + now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
@@ -68,7 +69,6 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 載入資料
         function loadData(isManual = false) {
             Papa.parse("data.csv?t=" + new Date().getTime(), {
                 download: true, header: true, skipEmptyLines: true,
@@ -80,9 +80,19 @@
                         }
                         return acc;
                     }, {});
-                    const latestDate = Object.keys(allGroupedData).sort().reverse()[0];
-                    renderView(latestDate);
-                    if(isManual) alert("數據已更新！");
+
+                    const select = document.getElementById('date-select');
+                    const savedValue = select.value;
+                    select.innerHTML = '';
+                    Object.keys(allGroupedData).sort().reverse().forEach(date => {
+                        let opt = document.createElement('option');
+                        opt.value = date; opt.innerText = date;
+                        select.appendChild(opt);
+                    });
+                    
+                    // 恢復之前的選擇，若沒有則選最新日期
+                    select.value = savedValue || Object.keys(allGroupedData).sort().reverse()[0];
+                    renderView(select.value);
                 }
             });
         }
@@ -133,7 +143,6 @@
             document.getElementById('prediction-result').innerText = "推薦: " + result.sort((a,b)=>a-b).join(', ');
         }
 
-        // 5秒自動更新
         setInterval(() => loadData(), 5000);
         loadData();
     </script>
