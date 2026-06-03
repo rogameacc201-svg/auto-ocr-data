@@ -1,28 +1,32 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+import pandas as pd
+import os
 
 def run_scraper():
-    print("--- 開始偵測 ---")
+    print("--- 開始爬取與寫入 ---")
     URL = "https://www.pilio.idv.tw/bingo/list.asp"
     HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'}
     
     try:
         response = requests.get(URL, headers=HEADERS, timeout=15)
-        # 用 ignore 忽略無法解碼的字元，確保程式能跑完
         content = response.content.decode('big5', errors='ignore')
         
-        # 【關鍵】：既然「期別」二字是亂碼，我們改用數字特徵來找
-        # 尋找網頁中 1150605 這種格式的期別數字
-        # 根據輸出，期別結構似乎是 [亂碼] + [數字]
-        # 我們直接找連續的數字序列，或者更精確的模式
-        
-        print("--- 網頁完整文字內容 ---")
-        print(content[:1000]) # 印出更多內容讓我們確認結構
-        
-        # 簡單測試：看看能不能找到任何數字
+        # 尋找所有 7 位數字序列
         all_numbers = re.findall(r'\d{7}', content)
-        print(f"抓到的 7 位數字序列: {all_numbers[:10]}")
+        # 去除重複，並排序 (最新的期別通常數字較大)
+        unique_periods = sorted(list(set(all_numbers)), reverse=True)
+        
+        print(f"整理後的期別清單: {unique_periods[:5]}")
+        
+        # 建立 DataFrame 並存檔
+        data = {'期別': unique_periods}
+        df = pd.DataFrame(data)
+        
+        file_path = "data.csv"
+        df.to_csv(file_path, index=False, encoding='utf-8-sig')
+        print(f"成功更新 {file_path}，共儲存 {len(unique_periods)} 筆期別。")
             
     except Exception as e:
         print(f"錯誤：{e}")
