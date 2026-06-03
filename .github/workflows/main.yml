@@ -1,8 +1,12 @@
 name: BINGO Update
+
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *' # 每天早上 8 點自動執行
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,14 +14,25 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v3
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+          
       - name: Install dependencies
         run: pip install beautifulsoup4 pandas requests
+        
       - name: Run script
         run: python main.py
+        
+      - name: Upload debug file
+        uses: actions/upload-artifact@v3
+        with:
+          name: debug-info
+          path: raw.txt
+          if-no-files-found: ignore
+          
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
@@ -29,7 +44,3 @@ jobs:
             git commit -m "Auto-update data.csv"
             git push origin main
           fi
-- uses: actions/upload-artifact@v3
-   with:
-     name: debug-data
-     path: raw.txt
