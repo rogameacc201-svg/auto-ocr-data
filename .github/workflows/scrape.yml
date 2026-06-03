@@ -2,13 +2,14 @@ name: Daily Bingo Scrape
 
 on:
   schedule:
+    # 每 5 分鐘執行一次
     - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 強制升級環境至 Node.js 24 以解決警告與錯誤
+    # 強制升級環境，解決 Node.js 20 貶值警告
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
@@ -26,18 +27,20 @@ jobs:
         run: pip install pandas requests beautifulsoup4
 
       - name: Run script
-        # 使用 || true 確保 Python 失敗時不會導致整個 workflow 崩潰
-        run: python main.py || true
+        # 即使 Python 執行發生異常，這裡也標記為成功，方便查看輸出結果
+        run: python main.py
 
       - name: Commit and push
-        # 即使沒有變更，也確保流程以成功結束
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
+          
+          # 檢查是否有檔案變動 (data.csv)
           git add data.csv
           if git diff --staged --quiet; then
-            echo "沒有資料變動，無需提交。"
+            echo "沒有檢測到 data.csv 的變動，跳過提交。"
           else
             git commit -m "Auto-update data.csv"
-            git push || echo "推送到遠端失敗，可能權限不足"
+            git push origin main
+            echo "data.csv 已更新並推送到遠端倉庫。"
           fi
