@@ -1,21 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>賓果開獎紀錄</title>
-    <style>table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }</style>
+    <title>賓果統計儀表板</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        .highlight { background-color: #f0f8ff; font-weight: bold; }
+    </style>
 </head>
 <body>
-    <h2>開獎號碼紀錄表</h2>
-    <div id="table-container">載入中...</div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.1/papaparse.min.js"></script>
+    <h1>賓果號碼統計</h1>
+    <div id="stats">正在讀取並計算資料...</div>
+
     <script>
         Papa.parse("data.csv", {
-            download: true, header: true,
+            download: true,
+            header: true,
             complete: function(results) {
-                let html = '<table><thead><tr>' + results.meta.fields.map(f => `<th>${f}</th>`).join('') + '</tr></thead><tbody>';
-                results.data.forEach(row => html += '<tr>' + Object.values(row).map(v => `<td>${v}</td>`).join('') + '</tr>');
-                document.getElementById('table-container').innerHTML = html + '</tbody></table>';
+                const data = results.data;
+                const counts = {};
+                let totalDraws = 0;
+
+                data.forEach(row => {
+                    for (let i = 1; i <= 20; i++) {
+                        let num = row[`號碼${i}`];
+                        if (num) {
+                            num = parseInt(num);
+                            counts[num] = (counts[num] || 0) + 1;
+                            totalDraws++;
+                        }
+                    }
+                });
+
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                
+                let html = `<h3>總開獎次數: ${data.length}</h3>`;
+                html += "<table><tr><th>號碼</th><th>出現次數</th><th>百分比</th></tr>";
+                
+                // 取最多與最少各10個
+                const top10 = sorted.slice(0, 10);
+                const bottom10 = sorted.slice(-10).reverse();
+                
+                // 合併顯示邏輯
+                sorted.forEach(([num, count]) => {
+                    const pct = ((count / totalDraws) * 100).toFixed(2) + "%";
+                    html += `<tr><td>${num}</td><td>${count}</td><td>${pct}</td></tr>`;
+                });
+                
+                html += "</table>";
+                document.getElementById('stats').innerHTML = html;
             }
         });
     </script>
