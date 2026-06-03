@@ -8,8 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       contents: write
     steps:
@@ -28,11 +26,14 @@ jobs:
         run: python main.py
 
       - name: Commit and push
-        # 如果執行到這裡代表 Python 已經跑完了
-        # 我們強制執行 git add，如果沒有檔案變更，commit 指令會被跳過，不影響結果
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add data.csv
-          git commit -m "Update bingo data" || echo "無資料變動，跳過提交"
-          git push origin main || echo "無資料變動，跳過推送"
+          if git diff --staged --quiet; then
+            echo "沒有資料變動，跳過提交。"
+          else
+            git commit -m "Auto-update data.csv"
+            git push
+            echo "資料已更新並推送到倉庫。"
+          fi
