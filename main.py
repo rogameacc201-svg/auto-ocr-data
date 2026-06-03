@@ -9,22 +9,20 @@ def run_scraper():
     
     try:
         response = requests.get(URL, headers=HEADERS, timeout=15)
-        
-        # 【核心修正】：不要只靠 encoding，直接用 raw content 用 big5 解碼
-        # 這是處理繁體中文舊網站最穩定的做法
+        # 用 ignore 忽略無法解碼的字元，確保程式能跑完
         content = response.content.decode('big5', errors='ignore')
         
-        soup = BeautifulSoup(content, 'html.parser')
-        text = soup.get_text()
+        # 【關鍵】：既然「期別」二字是亂碼，我們改用數字特徵來找
+        # 尋找網頁中 1150605 這種格式的期別數字
+        # 根據輸出，期別結構似乎是 [亂碼] + [數字]
+        # 我們直接找連續的數字序列，或者更精確的模式
         
-        # 列印片段測試
-        print(f"網頁內容預覽: {text[:100]}...")
+        print("--- 網頁完整文字內容 ---")
+        print(content[:1000]) # 印出更多內容讓我們確認結構
         
-        if "期別" in text:
-            print("結果：成功抓到網頁文字！")
-            # 這裡之後可以加入你的正規表達式邏輯
-        else:
-            print("結果：警告，依然找不到 '期別'，網站結構可能已大幅變更。")
+        # 簡單測試：看看能不能找到任何數字
+        all_numbers = re.findall(r'\d{7}', content)
+        print(f"抓到的 7 位數字序列: {all_numbers[:10]}")
             
     except Exception as e:
         print(f"錯誤：{e}")
