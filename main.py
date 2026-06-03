@@ -1,34 +1,34 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+import requests
 from bs4 import BeautifulSoup
 import re
 import pandas as pd
-import time
+import os
 
 def run_scraper():
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    # 使用原本有效的方法
+    url = "https://www.pilio.idv.tw/bingo/list.asp"
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
-    driver = webdriver.Chrome(options=options)
-    driver.get("https://www.pilio.idv.tw/bingo/list.asp")
-    time.sleep(5) 
-    text = BeautifulSoup(driver.page_source, 'html.parser').get_text()
-    driver.quit()
+    response = requests.get(url, headers=headers)
+    response.encoding = 'big5'
+    soup = BeautifulSoup(response.text, 'html.parser')
+    text = soup.get_text()
     
-    matches = re.findall(r'(\d{9}).*?([\d, \s]{50,})', text)
     data = []
-    for period, nums_str in matches:
-        nums = re.findall(r'\d{2}', nums_str)
-        if len(nums) >= 20:
-            data.append([period] + nums[:20])
-            
+    # 這是你原本有效的分塊邏輯
+    blocks = re.split(r':\s*', text)
+    for block in blocks:
+        period_match = re.search(r'\d{9}', block)
+        if period_match:
+            period = period_match.group()
+            nums = re.findall(r'\b\d{2}\b', block)
+            if len(nums) >= 20:
+                data.append([period] + nums[:20])
+    
     if data:
         df = pd.DataFrame(data, columns=['期別'] + [f'號碼{i+1}' for i in range(20)])
+        # 加上日期欄位方便 html 讀取
         df['日期'] = df['期別'].apply(lambda x: f"20{x[1:3]}/{x[3:5]}/{x[5:7]}")
-        cols = ['日期', '期別'] + [f'號碼{i+1}' for i in range(20)]
-        df = df[cols].drop_duplicates(subset=['期別']).sort_values(by='期別', ascending=False)
         df.to_csv("data.csv", index=False, encoding='utf-8-sig')
         print(f"成功儲存 {len(df)} 筆資料。")
 
