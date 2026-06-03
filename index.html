@@ -16,6 +16,9 @@
         select { width: 100%; max-width: 300px; padding: 12px; font-size: 16px; }
         .refresh-btn { padding: 12px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; margin-left: 10px; font-size: 16px; }
 
+        /* 自動更新控制區塊 */
+        .auto-refresh-box { margin-top: 15px; font-size: 0.9em; color: #666; }
+
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
         #right-pane { flex: 1; min-width: 300px; }
@@ -39,6 +42,11 @@
         <div id="controls">
             <select id="date-select"></select>
             <button class="refresh-btn" onclick="refreshData()">🔄 更新數據</button>
+            
+            <div class="auto-refresh-box">
+                <input type="checkbox" id="auto-refresh" checked> 自動更新 (每 60 秒)
+                <span id="countdown" style="margin-left: 10px;">倒數: 60s</span>
+            </div>
         </div>
 
         <div class="content-wrapper">
@@ -67,6 +75,21 @@
         setInterval(updateClock, 1000);
         updateClock();
 
+        // 自動更新倒數計時
+        let countdown = 60;
+        setInterval(function() {
+            if (document.getElementById('auto-refresh').checked) {
+                countdown--;
+                if (countdown <= 0) {
+                    refreshData();
+                    countdown = 60;
+                }
+                document.getElementById('countdown').innerText = "倒數: " + countdown + "s";
+            } else {
+                document.getElementById('countdown').innerText = "自動更新已暫停";
+            }
+        }, 1000);
+
         let allGroupedData = {};
 
         // 資料載入邏輯
@@ -92,7 +115,6 @@
                         select.appendChild(opt);
                     });
 
-                    // 若是手動更新，保留原選項；若第一次載入，選最新日期
                     select.value = isManual ? currentValue : select.options[0].value;
                     renderView(select.value);
                 }
@@ -112,8 +134,9 @@
         }
 
         function refreshData() {
-            console.log("手動更新數據...");
+            console.log("更新數據中...");
             loadData(true);
+            countdown = 60; // 重置計時器
         }
 
         function calculateStats(rows) {
