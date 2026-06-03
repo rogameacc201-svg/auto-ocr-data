@@ -8,14 +8,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # 強制使用 Node 24 消除警告
     permissions:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 # 更新為 v4
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5 # 更新為 v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
 
@@ -30,7 +32,6 @@ jobs:
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add data.csv
-          # 使用 -n 檢查是否有更改，這樣寫比原本的 diff 更穩健
           if [ -n "$(git status --porcelain)" ]; then
             git commit -m "Auto-update bingo data"
             git push
