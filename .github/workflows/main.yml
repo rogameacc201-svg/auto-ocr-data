@@ -1,37 +1,36 @@
 name: BINGO Auto Scraper
-
-# --- 這是你缺少的關鍵部分 ---
 on:
   push:
-    branches: [ main ]  # 當你推送到 main 分支時執行
+    branches: [ main ]
   schedule:
-    - cron: '0 8 * * *' # 每天早上 8 點自動執行 (UTC時間)
-  workflow_dispatch:    # 讓你可以在 GitHub 介面上手動點擊「Run workflow」
-# ---------------------------
+    - cron: '0 8 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions: # 明確要求寫入權限
+      contents: write
     steps:
       - uses: actions/checkout@v3
-      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install selenium beautifulsoup4 pandas
-
+          sudo apt-get update
+          sudo apt-get install -y chromium-chromedriver
       - name: Run script
-        run: |
-          python main.py
-
+        run: python main.py
       - name: Commit and push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.csv index.html
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update data and report" && git push)
+          git add data.csv
+          if ! git diff --cached --quiet; then
+            git commit -m "Update data.csv"
+            git push
+          fi
