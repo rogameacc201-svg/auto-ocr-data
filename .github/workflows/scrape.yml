@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 強制指定 Node 24 以消除棄用警告
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
@@ -23,7 +22,10 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install pandas requests beautifulsoup4
+        # 加入升級 pip，減少安裝錯誤風險
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas requests beautifulsoup4
 
       - name: Run script
         run: python main.py
@@ -33,11 +35,10 @@ jobs:
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add data.csv
-          # 檢查是否有實際變動，有的話才 commit
+          # 檢查是否有實際變動，有的話才 commit，且明確告知不用因為沒變動而退出
           if [ -n "$(git status --porcelain)" ]; then
             git commit -m "Auto-update bingo data"
             git push
           else
             echo "沒有新資料變動，無需提交"
-            exit 0
           fi
