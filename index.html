@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板</title>
+    <title>賓果統計儀表板</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
         .container { max-width: 1100px; margin: 0 auto; }
         
+        /* 標題區域：讓時間在右側 */
+        .header-box { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+        #live-clock { font-size: 1.1em; color: #555; font-weight: bold; }
+        
         #controls { margin-bottom: 20px; text-align: center; }
         select { width: 100%; max-width: 400px; padding: 12px; font-size: 16px; }
 
-        /* 左右分欄：左邊表格，右邊統計 */
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
         #right-pane { flex: 1; min-width: 300px; }
@@ -28,7 +31,11 @@
 </head>
 <body>
     <div class="container">
-        <h2>儀表板</h2>
+        <div class="header-box">
+            <h2>賓果統計儀表板</h2>
+            <div id="live-clock"></div>
+        </div>
+
         <div id="controls"><select id="date-select"></select></div>
 
         <div class="content-wrapper">
@@ -48,6 +55,16 @@
     </div>
 
     <script>
+        // 即時時鐘功能
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+            document.getElementById('live-clock').innerText = "目前時間: " + timeString;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // 資料解析功能
         Papa.parse("data.csv?t=" + new Date().getTime(), {
             download: true, header: true, skipEmptyLines: true,
             complete: function(results) {
@@ -71,7 +88,6 @@
                     const tbody = document.querySelector("#draws-table tbody");
                     tbody.innerHTML = '';
                     
-                    // 排序：最新的在最上面 (desc)
                     rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
                         let nums = Object.keys(r).filter(k => k.startsWith('號碼')).map(k => r[k]);
                         tbody.innerHTML += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
