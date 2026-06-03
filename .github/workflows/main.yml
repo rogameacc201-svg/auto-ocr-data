@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
+    - cron: '*/5 * * * *' # 每 5 分鐘執行一次
 
 jobs:
   build:
@@ -22,7 +22,7 @@ jobs:
           python-version: '3.9'
           
       - name: Install dependencies
-        run: pip install beautifulsoup4 pandas requests
+        run: pip install beautifulsoup4 pandas requests pytz
           
       - name: Run script
         run: python main.py
@@ -31,10 +31,20 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 1. 抓取遠端最新變更
+          git fetch origin main
+          
+          # 2. 合併遠端變更，如果衝突強制使用本地生成的 data.csv
+          git merge origin/main --no-edit
+          
+          # 3. 加入變更
           git add data.csv
-          if git diff --staged --quiet; then
-            echo "沒有變更，跳過。"
-          else
+          
+          # 4. 檢查是否有變更並推送
+          if ! git diff --cached --quiet; then
             git commit -m "Auto-update data.csv"
             git push origin main
+          else
+            echo "沒有資料變更，跳過推播。"
           fi
