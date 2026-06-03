@@ -5,7 +5,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    # 修改為標準寫法，每 5 分鐘執行一次
     - cron: '*/5 * * * *'
 
 jobs:
@@ -33,19 +32,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 確保拿到最新的遠端變更
+          # 1. 暫存目前的 data.csv
+          git add data.csv
+          git stash
+          
+          # 2. 強制拉取遠端最新進度，解決衝突
           git fetch origin main
+          git reset --hard origin/main
           
-          # 2. 合併遠端變更，如果不幸衝突，優先保留我們剛產生的 data.csv
-          git merge origin/main --no-edit || echo "Merge 失敗，繼續執行"
+          # 3. 恢復我們剛剛產生的新 data.csv
+          git stash pop || echo "無暫存資料"
           
-          # 3. 強制加入 data.csv
-          git add -f data.csv
-          
-          # 4. 檢查是否有實際更新
+          # 4. 提交並推播
+          git add data.csv
           if ! git diff --cached --quiet; then
             git commit -m "Auto-update data.csv"
             git push origin main
           else
-            echo "沒有資料變更，跳過推送。"
+            echo "沒有變更，跳過推播。"
           fi
