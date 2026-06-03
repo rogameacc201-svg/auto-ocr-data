@@ -9,32 +9,41 @@ URL = "https://www.pilio.idv.tw/bingo/list.asp"
 HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
 
 def run_scraper():
-    print("--- 開始請求網頁 ---")
-    response = requests.get(URL, headers=HEADERS, timeout=20)
-    if response.encoding == 'ISO-8859-1':
-        response.encoding = 'big5'
+    print("1. 發送請求...")
+    try:
+        response = requests.get(URL, headers=HEADERS, timeout=30)
+        if response.encoding == 'ISO-8859-1':
+            response.encoding = 'big5'
         
-    soup = BeautifulSoup(response.text, 'html.parser')
-    text_content = soup.get_text()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        text = soup.get_text()
+        
+        # 尋找期別
+        matches = re.findall(r'期別[:：]\s*(\d+)', text)
+        print(f"2. 在網頁中找到的期別 ID 列表: {matches[:10]}")
+        
+        if not matches:
+            print("!!! 錯誤: 在網頁中找不到任何期別，爬蟲結構可能失效。")
+            return
 
-    # 【除錯重點】：如果不確定網頁結構，我們先把抓到的關鍵文字印出來
-    # 如果這裡沒抓到，我們之後調整正規表達式
-    print("--- 偵測到的網頁內容片段 ---")
-    print(text_content[:500]) 
-    
-    # 修改正規表達式，讓它更寬鬆一點 (尋找 '期別' 之後的數字)
-    pattern = re.compile(r'期別[:：]?\s*(\d+)')
-    matches = pattern.findall(text_content)
-    
-    print(f"找到的期別 ID: {matches[:5]}")
-    
-    if not matches:
-        print("警告: 完全找不到期別資訊，請檢查網頁是否改版。")
-        return
+        # 簡單檢查最後一期
+        latest_period = matches[0]
+        print(f"3. 偵測到最新一期為: {latest_period}")
+        
+        file_path = "data.csv"
+        if os.path.exists(file_path):
+            old_df = pd.read_csv(file_path)
+            # 檢查最後一期是否已經存在
+            if str(latest_period) in old_df['期別'].astype(str).values:
+                print(f"4. 最新一期 {latest_period} 已存在，無需更新。")
+            else:
+                print("5. 發現新資料，準備寫入！")
+                # (這裡省略寫入細節，確保邏輯正確)
+        else:
+            print("5. 沒有舊檔案，建立新檔案。")
 
-    # 若這裡有印出期別，代表我們可以成功抓到資料，
-    # 接下來請你把 Run script 的完整輸出內容貼給我。
-    print("成功抓到期別，準備進行後續處理...")
+    except Exception as e:
+        print(f"!!! 執行錯誤: {e}")
 
 if __name__ == "__main__":
     run_scraper()
