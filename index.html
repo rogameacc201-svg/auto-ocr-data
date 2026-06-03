@@ -3,70 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板</title>
+    <title>儀表板 - 數據統計與推薦</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
         .container { max-width: 1100px; margin: 0 auto; }
-        .header-box { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
-        #live-clock { font-size: 1.1em; color: #555; font-weight: bold; }
+        .header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         #controls { margin-bottom: 20px; text-align: center; }
-        select { width: 100%; max-width: 300px; padding: 12px; font-size: 16px; }
-        .refresh-btn { padding: 12px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; margin-left: 10px; font-size: 16px; }
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
-        #right-pane { flex: 1; min-width: 300px; }
+        #right-pane { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px; }
         #table-container { height: 500px; overflow-y: auto; background: white; border: 1px solid #ddd; }
         table { width: 100%; border-collapse: collapse; }
         th { position: sticky; top: 0; background: #2c3e50; color: white; padding: 10px; }
         td { border: 1px solid #eee; padding: 8px; text-align: center; }
-        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; display: flex; gap: 20px; }
-        .stats-col { flex: 1; }
+        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; }
+        .prediction-box { background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffeeba; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header-box">
-            <h2>儀表板</h2>
-            <div id="live-clock"></div>
-        </div>
+        <div class="header-box"><h2>即時儀表板</h2><div id="live-clock"></div></div>
 
         <div id="controls">
             <select id="date-select"></select>
-            <button class="refresh-btn" onclick="refreshData()">🔄 手動更新</button>
+            <button class="refresh-btn" onclick="loadData(true)">🔄 更新</button>
         </div>
 
         <div class="content-wrapper">
             <div id="left-pane">
                 <div id="table-container">
-                    <table id="draws-table">
-                        <thead><tr><th>期別</th><th>號碼</th></tr></thead>
-                        <tbody></tbody>
-                    </table>
+                    <table id="draws-table"><thead><tr><th>期別</th><th>號碼</th></tr></thead><tbody></tbody></table>
                 </div>
             </div>
-            <div id="right-pane" class="stats-box">
-                <div class="stats-col" id="top-stats"></div>
-                <div class="stats-col" id="bottom-stats"></div>
+            <div id="right-pane">
+                <div class="stats-box"><div id="top-stats"></div><div id="bottom-stats"></div></div>
+                <div class="prediction-box">
+                    <h4>智能推薦號碼</h4>
+                    <label>選擇數量: <input type="number" id="num-count" value="5" min="1" max="10"></label>
+                    <button onclick="generatePrediction()">產生推薦</button>
+                    <p id="prediction-result" style="font-weight:bold; color:#d35400;"></p>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // 即時時鐘
-        function updateClock() {
-            const now = new Date();
-            const timeString = now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
-            document.getElementById('live-clock').innerText = "系統時間: " + timeString;
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
-
         let allGroupedData = {};
+        let currentSortedStats = []; // 存儲統計結果
 
-        // 資料載入邏輯
         function loadData(isManual = false) {
-            // 加入時間戳記避免讀取快取
             Papa.parse("data.csv?t=" + new Date().getTime(), {
                 download: true, header: true, skipEmptyLines: true,
                 complete: function(results) {
@@ -81,14 +67,11 @@
                     const select = document.getElementById('date-select');
                     const currentValue = select.value;
                     select.innerHTML = '';
-                    
                     Object.keys(allGroupedData).sort().reverse().forEach(date => {
                         let opt = document.createElement('option');
                         opt.value = date; opt.innerText = date;
                         select.appendChild(opt);
                     });
-
-                    // 若是手動更新，保留原選項；若第一次載入，選最新日期
                     select.value = (isManual && currentValue) ? currentValue : select.options[0].value;
                     renderView(select.value);
                 }
@@ -100,17 +83,11 @@
             if (!rows) return;
             const tbody = document.querySelector("#draws-table tbody");
             tbody.innerHTML = '';
-            
             rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
                 let nums = Object.keys(r).filter(k => k.startsWith('號碼')).map(k => r[k]);
                 tbody.innerHTML += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
             });
             calculateStats(rows);
-        }
-
-        function refreshData() {
-            console.log("手動更新...");
-            loadData(true);
         }
 
         function calculateStats(rows) {
@@ -121,24 +98,29 @@
                     if(val) counts[val] = (counts[val] || 0) + 1;
                 }
             });
-            let sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             
+            const total = rows.length;
             document.getElementById('top-stats').innerHTML = "<h4>次數最多</h4><ul>" + 
-                sorted.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
-            
+                currentSortedStats.slice(0,5).map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
             document.getElementById('bottom-stats').innerHTML = "<h4>次數最少</h4><ul>" + 
-                sorted.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
+                currentSortedStats.slice(-5).reverse().map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
         }
 
-        // 初始化
-        loadData();
+        function generatePrediction() {
+            const count = parseInt(document.getElementById('num-count').value);
+            if (currentSortedStats.length === 0) return;
 
-        // --- 自動更新機制 ---
-        // 設定每 60 秒自動背景呼叫一次 loadData(true)，維持當前篩選狀態
-        setInterval(() => {
-            console.log("背景自動更新數據中...");
-            loadData(true);
-        }, 5000);
+            // 邏輯：從熱門(前1/3)與冷門(後1/3)中混合選取
+            let pool = currentSortedStats.slice(0, 10).concat(currentSortedStats.slice(-10));
+            let selected = pool.sort(() => 0.5 - Math.random()).slice(0, count);
+            
+            document.getElementById('prediction-result').innerText = 
+                "推薦號碼: " + selected.map(x => x[0]).sort((a,b)=>a-b).join(', ');
+        }
+
+        setInterval(() => loadData(true), 5000);
+        loadData();
     </script>
 </body>
 </html>
