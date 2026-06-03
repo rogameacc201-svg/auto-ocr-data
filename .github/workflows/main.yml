@@ -11,9 +11,14 @@ jobs:
       - uses: actions/checkout@v3
       - run: pip install beautifulsoup4 pandas requests
       - run: python main.py
-      - run: |
-          git config user.name "bot"
-          git config user.email "bot@bot.com"
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git merge origin/main --no-edit
           git add data.csv
-          git commit -m "Update" || echo "No changes"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto-update data.csv"
+            git push origin main
+          fi
