@@ -8,8 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 強制指定 Node 24 以消除棄用警告
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # 強制使用 Node 24 消除警告
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       contents: write
     steps:
@@ -32,9 +33,11 @@ jobs:
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add data.csv
+          # 檢查是否有實際變動，有的話才 commit
           if [ -n "$(git status --porcelain)" ]; then
             git commit -m "Auto-update bingo data"
             git push
           else
-            echo "無新資料需要提交"
+            echo "沒有新資料變動，無需提交"
+            exit 0
           fi
