@@ -1,46 +1,40 @@
 import requests
+from bs4 import BeautifulSoup
 import re
 import pandas as pd
-import os
 
-def run_scraper():
-    print("--- 執行暴力模式匹配 ---")
-    URL = "https://www.pilio.idv.tw/bingo/list.asp"
-    HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'}
+url = "https://www.pilio.idv.tw/bingo/list.asp"
+headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+
+# 【修正 1】：改用更底層的 content 處理，強制處理編碼問題
+response = requests.get(url, headers=headers, timeout=20)
+content = response.content.decode('big5', errors='ignore') 
+
+soup = BeautifulSoup(content, 'html.parser')
+text_content = soup.get_text()
+
+# 【修正 2】：放寬 Regex 匹配條件
+# 改用：尋找「期別」關鍵字，後面跟著任何數字，再匹配後面的數字序列
+# 這能避開「冒號是否為全形」的問題
+pattern = re.compile(r'期別[:：]?\s*(\d+)】?\s*([\d\s,]+)')
+
+matches = pattern.findall(text_content)
+
+data = []
+for m in matches:
+    period = m[0]
+    # 清理號碼：只抓出數字，並用空格分開
+    numbers = re.findall(r'\d{2}', m[1])
     
-    try:
-        response = requests.get(URL, headers=HEADERS, timeout=20)
-        # 用 big5 解碼並忽略錯誤，直接獲取純文字
-        text = response.content.decode('big5', errors='ignore')
-        
-        # 尋找所有 2 位數的組合，賓果號碼通常是 01-80
-        # 我們抓取網頁中所有連續出現的 2 位數字 (這裡排除期別的 7 位數)
-        nums = re.findall(r'\b(\d{2})\b', text)
-        
-        # 賓果每期 20 個號碼，加上期別 (假設期別緊鄰在號碼前)
-        # 我們嘗試從文字中找出長度為 21 的數字序列
-        data = []
-        # 我們使用滑動視窗找尋可能的序列
-        for i in range(len(nums) - 20):
-            # 檢查是否有連續 20 個號碼 (數字範圍 01-80)
-            chunk = nums[i:i+20]
-            if all(1 <= int(n) <= 80 for n in chunk):
-                # 假設前一個是期別 (這裡期別長度不固定，暫時先略過期別，只抓號碼)
-                data.append(chunk)
-                
-        if not data:
-            print("警告: 依然抓不到數字組合，網站可能封鎖了爬蟲。")
-            return
+    if len(numbers) >= 20:
+        data.append([period] + numbers[:20])
 
-        # 這裡會存入號碼，期別部分我們後續再優化
-        df = pd.DataFrame(data, columns=[f'號碼{i+1}' for i in range(20)])
-        
-        file_path = "data.csv"
-        df.to_csv(file_path, index=False, encoding='utf-8-sig')
-        print(f"成功抓取到 {len(df)} 組號碼序列。")
-            
-    except Exception as e:
-        print(f"錯誤: {e}")
-
-if __name__ == "__main__":
-    run_scraper()
+if not data:
+    print("還是抓不到，請檢查網頁內容：")
+    print(text_content[:500]) # 印出片段讓我們分析
+else:
+    cols = ['期別'] + [f'號碼{i+1}' for i in range(20)]
+    df = pd.DataFrame(data, columns=cols)
+    df.to_csv("data.csv", index=False, encoding='utf-8-sig')
+    print("成功抓取！")
+    print(df.head())
