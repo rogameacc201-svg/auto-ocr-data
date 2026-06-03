@@ -6,7 +6,10 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '*/5 * * * *'
-    - cron: '*/3 * * * *'
+  # 新增這個：這會讓它在每次有 Commit 時，確保 workflow 被檢查
+  watch:
+    types: [started]
+
 
 jobs:
   build:
