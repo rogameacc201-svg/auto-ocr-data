@@ -1,0 +1,33 @@
+name: Daily Bingo Scrape
+
+on:
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install pandas requests beautifulsoup4
+      - name: Run script
+        run: python main.py
+      - name: Commit and push
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add data.csv
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "無新資料"
+          else
+            git commit -m "Auto-update bingo data"
+            git push
+          fi
