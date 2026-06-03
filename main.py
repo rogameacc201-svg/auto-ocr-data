@@ -1,41 +1,47 @@
-import requests
-from bs4 import BeautifulSoup
-import re
-import pandas as pd
+import os
+import csv
 from datetime import datetime
-import pytz
 
-def run_scraper():
-    url = "https://www.pilio.idv.tw/bingo/list.asp"
-    headers = {'User-Agent': 'Mozilla/5.0'}
+def save_data_to_csv(new_data):
+    """
+    new_data 應該是一個字典，例如:
+    {'期別': '115031263', '號碼1': '01', '號碼2': '05', ...}
+    """
+    file_path = 'data.csv'
+    # 取得當前台北時間的日期 (YYYY/MM/DD)
+    today = datetime.now().strftime("%Y/%m/%d")
     
-    response = requests.get(url, headers=headers)
-    response.encoding = 'utf-8'
-    soup = BeautifulSoup(response.text, 'html.parser')
+    # 將日期加入資料字典
+    new_data['日期'] = today
     
-    data = []
-    table = soup.find('table', id='ltotable')
-    if table:
-        # 設定時區為台北時間
-        taipei_tz = pytz.timezone('Asia/Taipei')
-        now_date = datetime.now(taipei_tz).strftime('%Y/%m/%d')
+    # 定義所有欄位順序 (確保 CSV 格式整齊)
+    fieldnames = ['日期', '期別'] + [f'號碼{i}' for i in range(1, 21)]
+    
+    # 檢查檔案是否存在
+    file_exists = os.path.isfile(file_path)
+    
+    # 【關鍵點】使用 'a' 模式 (Append)，這會將新資料加在檔案最後面，不會蓋掉舊資料
+    with open(file_path, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         
-        for row in table.find_all('tr'):
-            text = row.get_text()
-            period_match = re.search(r'(\d{9})', text)
-            if period_match:
-                period = period_match.group(1)
-                nums = re.findall(r'\b(\d{2})\b', text)
-                if len(nums) >= 20:
-                    # 直接寫入當前系統日期
-                    data.append([now_date, period] + nums[:20])
-    
-    if data:
-        df = pd.DataFrame(data, columns=['日期', '期別'] + [f'號碼{i+1}' for i in range(20)])
-        # 依照期別由新到舊排序
-        df = df.sort_values(by='期別', ascending=False)
-        df.to_csv("data.csv", index=False, encoding='utf-8-sig')
-        print(f"成功儲存 {len(df)} 筆資料，日期標記為 {now_date}")
+        # 如果是第一次建立檔案，才寫入標題
+        if not file_exists:
+            writer.writeheader()
+        
+        # 寫入這筆新的資料
+        writer.writerow(new_data)
+        
+    print(f"成功追加資料: {new_data['期別']} 到 {today}")
 
-if __name__ == "__main__":
-    run_scraper()
+# --- 使用範例 ---
+# 假設這是你從網頁 OCR 抓到的新一期資料
+# 記得要把所有號碼補齊到 20 個
+latest_row = {
+    '期別': '115031263',
+    '號碼1': '01', '號碼2': '05', '號碼3': '06', '號碼4': '13', '號碼5': '19',
+    '號碼6': '23', '號碼7': '26', '號碼8': '36', '號碼9': '39', '號碼10': '44',
+    '號碼11': '47', '號碼12': '51', '號碼13': '53', '號碼14': '54', '號碼15': '55',
+    '號碼16': '62', '號碼17': '64', '號碼18': '68', '號碼19': '77', '號碼20': '80'
+}
+
+save_data_to_csv(latest_row)
