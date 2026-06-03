@@ -25,24 +25,17 @@
     <div id="main">
         <h1 id="current-date">請選擇日期</h1>
         <div class="stats-container">
-            <div class="stats-box">
-                <h3>Top 10 熱門號碼</h3>
-                <div id="top-stats"></div>
-            </div>
-            <div class="stats-box">
-                <h3>Bottom 10 冷門號碼</h3>
-                <div id="bottom-stats"></div>
-            </div>
+            <div class="stats-box"><h3>熱門號碼</h3><div id="top-stats"></div></div>
+            <div class="stats-box"><h3>冷門號碼</h3><div id="bottom-stats"></div></div>
         </div>
-        <h3>當日詳細開獎記錄</h3>
-        <div id="draws-table"></div>
+        <h3>詳細記錄</h3><div id="draws-table"></div>
     </div>
 
     <script>
         Papa.parse("data.csv", {
             download: true, header: true,
             complete: function(results) {
-                const data = results.data.filter(row => row.日期); // 過濾空行
+                const data = results.data.filter(row => row.日期);
                 const grouped = data.reduce((acc, row) => {
                     if (!acc[row.日期]) acc[row.日期] = [];
                     acc[row.日期].push(row);
@@ -53,14 +46,13 @@
                 Object.keys(grouped).sort().reverse().forEach(date => {
                     const btn = document.createElement('button');
                     btn.innerText = date;
-                    btn.onclick = () => updateView(date);
+                    btn.onclick = () => updateView(date, grouped);
                     dateList.appendChild(btn);
                 });
 
-                window.updateView = function(date) {
+                function updateView(date, grouped) {
                     const dayData = grouped[date];
                     document.getElementById('current-date').innerText = `日期: ${date} (共 ${dayData.length} 期)`;
-                    
                     const counts = {};
                     dayData.forEach(row => {
                         for(let i=1; i<=20; i++) {
@@ -68,29 +60,23 @@
                             if(n) counts[n] = (counts[n] || 0) + 1;
                         }
                     });
-                    
                     const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
-                    
                     const renderTable = (arr) => {
-                        let h = "<table><tr><th>號碼</th><th>次數</th><th>出現率</th></tr>";
-                        arr.forEach(([n, c]) => {
-                            // 修正後邏輯：次數 / 總期數
-                            const rate = ((c / dayData.length) * 100).toFixed(1) + "%";
-                            h += `<tr><td>${n}</td><td>${c}</td><td>${rate}</td></tr>`;
-                        });
+                        let h = "<table><tr><th>號碼</th><th>次數</th></tr>";
+                        arr.forEach(([n, c]) => h += `<tr><td>${n}</td><td>${c}</td></tr>`);
                         return h + "</table>";
                     };
-
                     document.getElementById('top-stats').innerHTML = renderTable(sorted.slice(0, 10));
                     document.getElementById('bottom-stats').innerHTML = renderTable(sorted.slice(-10).reverse());
                     
-                    let listHtml = "<table><tr><th>期別</th><th>開出號碼</th></tr>";
+                    let listHtml = "<table><tr><th>期別</th><th>號碼</th></tr>";
                     dayData.forEach(r => {
-                        const nums = Object.values(r).slice(2).filter(v => v !== "").join(', ');
-                        listHtml += `<tr><td>${r.期別}</td><td>${nums}</td></tr>`;
+                        let nums = [];
+                        for(let i=1; i<=20; i++) if(r[`號碼${i}`]) nums.push(r[`號碼${i}`]);
+                        listHtml += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
                     });
                     document.getElementById('draws-table').innerHTML = listHtml + "</table>";
-                };
+                }
             }
         });
     </script>
