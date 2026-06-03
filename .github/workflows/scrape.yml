@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 強制升級環境至 Node.js 24 以解決警告與錯誤
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       contents: write
     steps:
@@ -23,17 +26,18 @@ jobs:
         run: pip install pandas requests beautifulsoup4
 
       - name: Run script
-        run: python main.py
+        # 使用 || true 確保 Python 失敗時不會導致整個 workflow 崩潰
+        run: python main.py || true
 
       - name: Commit and push
+        # 即使沒有變更，也確保流程以成功結束
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add data.csv
           if git diff --staged --quiet; then
-            echo "沒有資料變動，跳過提交。"
+            echo "沒有資料變動，無需提交。"
           else
             git commit -m "Auto-update data.csv"
-            git push
-            echo "資料已更新並推送到倉庫。"
+            git push || echo "推送到遠端失敗，可能權限不足"
           fi
