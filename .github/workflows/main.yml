@@ -1,20 +1,33 @@
-- name: Commit and push changes
+name: BINGO Update
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install beautifulsoup4 pandas requests
+      - name: Run script
+        run: python main.py
+      - name: Commit and push
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 1. 先把產生的 data.csv 暫存起來
-          git add data.csv
-          
-          # 2. 嘗試拉取遠端最新變更，並進行合併
-          # 使用 --rebase 可以避免不必要的 merge commit
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
-          git merge origin/main --no-edit || git rebase --abort
-          
-          # 3. 如果有變更，就提交
+          git merge origin/main --no-edit
+          git add data.csv
           if ! git diff --cached --quiet; then
             git commit -m "Auto-update data.csv"
             git push origin main
-          else
-            echo "No changes to commit."
           fi
