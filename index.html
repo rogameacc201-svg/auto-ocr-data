@@ -5,53 +5,73 @@
     <title>賓果統計儀表板</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        .highlight { background-color: #f0f8ff; font-weight: bold; }
+        body { display: flex; font-family: sans-serif; }
+        #sidebar { width: 200px; padding: 20px; border-right: 1px solid #ccc; height: 100vh; overflow-y: auto; }
+        #main { padding: 20px; flex-grow: 1; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .stats-grid { display: flex; gap: 20px; }
     </style>
 </head>
 <body>
-    <h1>賓果號碼統計</h1>
-    <div id="stats">正在讀取並計算資料...</div>
+    <div id="sidebar"><h3>選擇日期</h3><div id="date-list"></div></div>
+    <div id="main">
+        <h2 id="current-date">請選擇日期</h2>
+        <div class="stats-grid">
+            <div id="draws-section"><h3>當日號碼</h3><div id="draws-table"></div></div>
+            <div id="stats-section">
+                <h3>Top 10 熱門</h3><div id="top-stats"></div>
+                <h3>Bottom 10 冷門</h3><div id="bottom-stats"></div>
+            </div>
+        </div>
+    </div>
 
     <script>
         Papa.parse("data.csv", {
-            download: true,
-            header: true,
+            download: true, header: true,
             complete: function(results) {
                 const data = results.data;
-                const counts = {};
-                let totalDraws = 0;
+                const grouped = data.reduce((acc, row) => {
+                    if (!acc[row.日期]) acc[row.日期] = [];
+                    acc[row.日期].push(row);
+                    return acc;
+                }, {});
 
-                data.forEach(row => {
-                    for (let i = 1; i <= 20; i++) {
-                        let num = row[`號碼${i}`];
-                        if (num) {
-                            num = parseInt(num);
-                            counts[num] = (counts[num] || 0) + 1;
-                            totalDraws++;
+                const dateList = document.getElementById('date-list');
+                Object.keys(grouped).sort().reverse().forEach(date => {
+                    const btn = document.createElement('div');
+                    btn.innerHTML = `<button onclick="updateView('${date}')">${date}</button>`;
+                    dateList.appendChild(btn);
+                });
+
+                window.updateView = function(date) {
+                    document.getElementById('current-date').innerText = date;
+                    const dayData = grouped[date];
+                    
+                    // 計算統計
+                    const counts = {};
+                    dayData.forEach(row => {
+                        for(let i=1; i<=20; i++) {
+                            let n = row[`號碼${i}`];
+                            if(n) counts[n] = (counts[n] || 0) + 1;
                         }
-                    }
-                });
+                    });
+                    const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+                    
+                    const renderTable = (arr) => {
+                        let h = "<table><tr><th>號碼</th><th>次數</th><th>%</th></tr>";
+                        arr.forEach(([n, c]) => h += `<tr><td>${n}</td><td>${c}</td><td>${(c/(dayData.length*20)*100).toFixed(1)}%</td></tr>`);
+                        return h + "</table>";
+                    };
 
-                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-                
-                let html = `<h3>總開獎次數: ${data.length}</h3>`;
-                html += "<table><tr><th>號碼</th><th>出現次數</th><th>百分比</th></tr>";
-                
-                // 取最多與最少各10個
-                const top10 = sorted.slice(0, 10);
-                const bottom10 = sorted.slice(-10).reverse();
-                
-                // 合併顯示邏輯
-                sorted.forEach(([num, count]) => {
-                    const pct = ((count / totalDraws) * 100).toFixed(2) + "%";
-                    html += `<tr><td>${num}</td><td>${count}</td><td>${pct}</td></tr>`;
-                });
-                
-                html += "</table>";
-                document.getElementById('stats').innerHTML = html;
+                    document.getElementById('top-stats').innerHTML = renderTable(sorted.slice(0, 10));
+                    document.getElementById('bottom-stats').innerHTML = renderTable(sorted.slice(-10).reverse());
+                    
+                    // 顯示開獎清單
+                    let listHtml = "<table><tr><th>期別</th><th>號碼</th></tr>";
+                    dayData.forEach(r => listHtml += `<tr><td>${r.期別}</td><td>${Object.values(r).slice(2).join(', ')}</td></tr>`);
+                    document.getElementById('draws-table').innerHTML = listHtml + "</table>";
+                };
             }
         });
     </script>
