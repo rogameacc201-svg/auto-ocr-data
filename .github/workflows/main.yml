@@ -1,47 +1,47 @@
 name: BINGO Update
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-  schedule:
-    # 從第 3 分鐘開始，每 5 分鐘執行一次 (3, 8, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58)
-    - cron: '3-59/5 * * * *'
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    # 從第 3 分鐘開始，每 5 分鐘執行一次 (3, 8, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58)
+    - cron: '3-59/5 * * * *'
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-          
-      - name: Install dependencies
-        run: pip install beautifulsoup4 pandas requests
-        
-      - name: Run script
-        run: python main.py
-        
-      - name: Upload debug file
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-info
-          path: raw.txt
-          if-no-files-found: ignore
-          
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f data.csv
-          git fetch origin main
-          git merge origin/main --no-edit || git checkout --ours data.csv
-          if ! git diff --cached --quiet; then
-            git commit -m "Auto-update data.csv"
-            git push origin main
-          fi
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: pip install beautifulsoup4 pandas requests
+        
+      - name: Run script
+        run: python main.py
+        
+      - name: Upload debug file
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-info
+          path: raw.txt
+          if-no-files-found: ignore
+          
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data.csv
+          git fetch origin main
+          git merge origin/main --no-edit || git checkout --ours data.csv
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto-update data.csv"
+            git push origin main
+          fi
