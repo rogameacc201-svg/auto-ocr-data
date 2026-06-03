@@ -1,163 +1,279 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>儀表板</title>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
     <style>
+
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
+
         .container { max-width: 1100px; margin: 0 auto; }
+
         
+
         .header-box { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+
         #live-clock { font-size: 1.1em; color: #555; font-weight: bold; }
+
         
+
         #controls { margin-bottom: 20px; text-align: center; }
+
         select { width: 100%; max-width: 300px; padding: 12px; font-size: 16px; }
+
         .refresh-btn { padding: 12px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; margin-left: 10px; font-size: 16px; }
 
-        /* 自動更新控制區塊 */
-        .auto-refresh-box { margin-top: 15px; font-size: 0.9em; color: #666; }
+
 
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
+
         #left-pane { flex: 2; min-width: 300px; }
+
         #right-pane { flex: 1; min-width: 300px; }
 
+
+
         #table-container { height: 500px; overflow-y: auto; background: white; border: 1px solid #ddd; }
+
         table { width: 100%; border-collapse: collapse; }
+
         th { position: sticky; top: 0; background: #2c3e50; color: white; padding: 10px; }
+
         td { border: 1px solid #eee; padding: 8px; text-align: center; }
 
+
+
         .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; display: flex; gap: 20px; }
+
         .stats-col { flex: 1; }
+
     </style>
+
 </head>
+
 <body>
+
     <div class="container">
+
         <div class="header-box">
+
             <h2>儀表板</h2>
+
             <div id="live-clock"></div>
+
         </div>
+
+
 
         <div id="controls">
+
             <select id="date-select"></select>
+
             <button class="refresh-btn" onclick="refreshData()">🔄 更新數據</button>
-            
-            <div class="auto-refresh-box">
-                <input type="checkbox" id="auto-refresh" checked> 自動更新 (每 60 秒)
-                <span id="countdown" style="margin-left: 10px;">倒數: 60s</span>
-            </div>
+
         </div>
+
+
 
         <div class="content-wrapper">
+
             <div id="left-pane">
+
                 <div id="table-container">
+
                     <table id="draws-table">
+
                         <thead><tr><th>期別</th><th>號碼</th></tr></thead>
+
                         <tbody></tbody>
+
                     </table>
+
                 </div>
+
             </div>
+
             <div id="right-pane" class="stats-box">
+
                 <div class="stats-col" id="top-stats"></div>
+
                 <div class="stats-col" id="bottom-stats"></div>
+
             </div>
+
         </div>
+
     </div>
 
+
+
     <script>
+
         // 即時時鐘
+
         function updateClock() {
+
             const now = new Date();
+
             const timeString = now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+
             document.getElementById('live-clock').innerText = "目前時間: " + timeString;
+
         }
+
         setInterval(updateClock, 1000);
+
         updateClock();
 
-        // 自動更新倒數計時
-        let countdown = 60;
-        setInterval(function() {
-            if (document.getElementById('auto-refresh').checked) {
-                countdown--;
-                if (countdown <= 0) {
-                    refreshData();
-                    countdown = 60;
-                }
-                document.getElementById('countdown').innerText = "倒數: " + countdown + "s";
-            } else {
-                document.getElementById('countdown').innerText = "自動更新已暫停";
-            }
-        }, 1000);
+
 
         let allGroupedData = {};
 
+
+
         // 資料載入邏輯
+
         function loadData(isManual = false) {
+
             Papa.parse("data.csv?t=" + new Date().getTime(), {
+
                 download: true, header: true, skipEmptyLines: true,
+
                 complete: function(results) {
+
                     allGroupedData = results.data.reduce((acc, r) => {
+
                         if (r.日期) {
+
                             if (!acc[r.日期]) acc[r.日期] = [];
+
                             acc[r.日期].push(r);
+
                         }
+
                         return acc;
+
                     }, {});
 
+
+
                     const select = document.getElementById('date-select');
+
                     const currentValue = select.value;
+
                     select.innerHTML = '';
+
                     
+
                     Object.keys(allGroupedData).sort().reverse().forEach(date => {
+
                         let opt = document.createElement('option');
+
                         opt.value = date; opt.innerText = date;
+
                         select.appendChild(opt);
+
                     });
 
+
+
+                    // 若是手動更新，保留原選項；若第一次載入，選最新日期
+
                     select.value = isManual ? currentValue : select.options[0].value;
+
                     renderView(select.value);
+
                 }
+
             });
+
         }
+
+
 
         function renderView(date) {
+
             const rows = allGroupedData[date];
+
             const tbody = document.querySelector("#draws-table tbody");
+
             tbody.innerHTML = '';
+
             
+
             rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
+
                 let nums = Object.keys(r).filter(k => k.startsWith('號碼')).map(k => r[k]);
+
                 tbody.innerHTML += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
+
             });
+
             calculateStats(rows);
+
         }
+
+
 
         function refreshData() {
-            console.log("更新數據中...");
+
+            console.log("手動更新數據...");
+
             loadData(true);
-            countdown = 60; // 重置計時器
+
         }
+
+
 
         function calculateStats(rows) {
+
             let counts = {};
+
             rows.forEach(r => {
+
                 for(let i=1; i<=20; i++) {
+
                     let val = r[`號碼${i}`];
+
                     if(val) counts[val] = (counts[val] || 0) + 1;
+
                 }
+
             });
+
             let sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
             
+
             document.getElementById('top-stats').innerHTML = "<h4>次數最多</h4><ul>" + 
+
                 sorted.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次 (${(x[1]/rows.length*100).toFixed(1)}%)</li>`).join('') + "</ul>";
+
             
+
             document.getElementById('bottom-stats').innerHTML = "<h4>次數最少</h4><ul>" + 
+
                 sorted.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次 (${(x[1]/rows.length*100).toFixed(1)}%)</li>`).join('') + "</ul>";
+
         }
 
+
+
         // 初始化
+
         loadData();
+
     </script>
+
 </body>
+
 </html>
