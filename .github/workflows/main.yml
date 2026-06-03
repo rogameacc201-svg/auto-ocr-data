@@ -5,8 +5,8 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    # 從第 3 分鐘開始，每 5 分鐘執行一次 (3, 8, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58)
-    - cron: '3-59/5 * * * *'
+    # 修改為標準寫法，每 5 分鐘執行一次
+    - cron: '*/5 * * * *'
 
 jobs:
   build:
@@ -14,7 +14,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -22,26 +23,29 @@ jobs:
           python-version: '3.9'
           
       - name: Install dependencies
-        run: pip install beautifulsoup4 pandas requests
-        
+        run: pip install beautifulsoup4 pandas requests pytz
+          
       - name: Run script
         run: python main.py
-        
-      - name: Upload debug file
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-info
-          path: raw.txt
-          if-no-files-found: ignore
           
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f data.csv
+          
+          # 1. 確保拿到最新的遠端變更
           git fetch origin main
-          git merge origin/main --no-edit || git checkout --ours data.csv
+          
+          # 2. 合併遠端變更，如果不幸衝突，優先保留我們剛產生的 data.csv
+          git merge origin/main --no-edit || echo "Merge 失敗，繼續執行"
+          
+          # 3. 強制加入 data.csv
+          git add -f data.csv
+          
+          # 4. 檢查是否有實際更新
           if ! git diff --cached --quiet; then
             git commit -m "Auto-update data.csv"
             git push origin main
+          else
+            echo "沒有資料變更，跳過推送。"
           fi
