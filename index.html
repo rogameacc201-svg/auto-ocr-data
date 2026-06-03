@@ -1,23 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>賓果數據儀表板</title>
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <meta charset="UTF-8">
+    <title>賓果開獎紀錄</title>
+    <style>table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }</style>
 </head>
 <body>
-    <h2>最新賓果資料</h2>
-    <table id="bingoTable"></table>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <h2>開獎號碼紀錄表</h2>
+    <div id="table-container">載入中...</div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.1/papaparse.min.js"></script>
     <script>
         Papa.parse("data.csv", {
-            download: true,
-            header: true,
+            download: true, header: true,
             complete: function(results) {
-                // 將 CSV 轉換為 HTML 表格
-                // ...這裡可以撰寫簡單的 JS 將資料填入 table...
+                let html = '<table><thead><tr>' + results.meta.fields.map(f => `<th>${f}</th>`).join('') + '</tr></thead><tbody>';
+                results.data.forEach(row => html += '<tr>' + Object.values(row).map(v => `<td>${v}</td>`).join('') + '</tr>');
+                document.getElementById('table-container').innerHTML = html + '</tbody></table>';
             }
         });
     </script>
