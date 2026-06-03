@@ -29,3 +29,7 @@ jobs:
             git commit -m "Auto-update data.csv"
             git push origin main
           fi
+- uses: actions/upload-artifact@v3
+   with:
+     name: debug-data
+     path: raw.txt
