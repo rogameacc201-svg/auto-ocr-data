@@ -9,12 +9,12 @@
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
         .container { max-width: 1100px; margin: 0 auto; }
         
-        /* 標題區域：讓時間在右側 */
         .header-box { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
         #live-clock { font-size: 1.1em; color: #555; font-weight: bold; }
         
         #controls { margin-bottom: 20px; text-align: center; }
-        select { width: 100%; max-width: 400px; padding: 12px; font-size: 16px; }
+        select { width: 100%; max-width: 300px; padding: 12px; font-size: 16px; }
+        .refresh-btn { padding: 12px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; margin-left: 10px; font-size: 16px; }
 
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
@@ -36,7 +36,10 @@
             <div id="live-clock"></div>
         </div>
 
-        <div id="controls"><select id="date-select"></select></div>
+        <div id="controls">
+            <select id="date-select"></select>
+            <button class="refresh-btn" onclick="refreshData()">🔄 更新數據</button>
+        </div>
 
         <div class="content-wrapper">
             <div id="left-pane">
@@ -55,7 +58,7 @@
     </div>
 
     <script>
-        // 即時時鐘功能
+        // 即時時鐘
         function updateClock() {
             const now = new Date();
             const timeString = now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
@@ -64,40 +67,54 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // 資料解析功能
-        Papa.parse("data.csv?t=" + new Date().getTime(), {
-            download: true, header: true, skipEmptyLines: true,
-            complete: function(results) {
-                const grouped = results.data.reduce((acc, r) => {
-                    if (r.日期) {
-                        if (!acc[r.日期]) acc[r.日期] = [];
-                        acc[r.日期].push(r);
-                    }
-                    return acc;
-                }, {});
+        let allGroupedData = {};
 
-                const select = document.getElementById('date-select');
-                Object.keys(grouped).sort().reverse().forEach(date => {
-                    let opt = document.createElement('option');
-                    opt.value = date; opt.innerText = date;
-                    select.appendChild(opt);
-                });
+        // 資料載入邏輯
+        function loadData(isManual = false) {
+            Papa.parse("data.csv?t=" + new Date().getTime(), {
+                download: true, header: true, skipEmptyLines: true,
+                complete: function(results) {
+                    allGroupedData = results.data.reduce((acc, r) => {
+                        if (r.日期) {
+                            if (!acc[r.日期]) acc[r.日期] = [];
+                            acc[r.日期].push(r);
+                        }
+                        return acc;
+                    }, {});
 
-                select.onchange = function() {
-                    const rows = grouped[this.value];
-                    const tbody = document.querySelector("#draws-table tbody");
-                    tbody.innerHTML = '';
+                    const select = document.getElementById('date-select');
+                    const currentValue = select.value;
+                    select.innerHTML = '';
                     
-                    rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
-                        let nums = Object.keys(r).filter(k => k.startsWith('號碼')).map(k => r[k]);
-                        tbody.innerHTML += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
+                    Object.keys(allGroupedData).sort().reverse().forEach(date => {
+                        let opt = document.createElement('option');
+                        opt.value = date; opt.innerText = date;
+                        select.appendChild(opt);
                     });
 
-                    calculateStats(rows);
-                };
-                select.onchange();
-            }
-        });
+                    // 若是手動更新，保留原選項；若第一次載入，選最新日期
+                    select.value = isManual ? currentValue : select.options[0].value;
+                    renderView(select.value);
+                }
+            });
+        }
+
+        function renderView(date) {
+            const rows = allGroupedData[date];
+            const tbody = document.querySelector("#draws-table tbody");
+            tbody.innerHTML = '';
+            
+            rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
+                let nums = Object.keys(r).filter(k => k.startsWith('號碼')).map(k => r[k]);
+                tbody.innerHTML += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
+            });
+            calculateStats(rows);
+        }
+
+        function refreshData() {
+            console.log("手動更新數據...");
+            loadData(true);
+        }
 
         function calculateStats(rows) {
             let counts = {};
@@ -115,6 +132,9 @@
             document.getElementById('bottom-stats').innerHTML = "<h4>次數最少</h4><ul>" + 
                 sorted.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次 (${(x[1]/rows.length*100).toFixed(1)}%)</li>`).join('') + "</ul>";
         }
+
+        // 初始化
+        loadData();
     </script>
 </body>
 </html>
