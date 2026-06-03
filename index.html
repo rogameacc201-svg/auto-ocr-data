@@ -10,6 +10,8 @@
         .container { max-width: 1100px; margin: 0 auto; }
         .header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         #live-clock { font-size: 1.1em; color: #d35400; font-weight: bold; }
+        #controls { margin-bottom: 20px; text-align: center; }
+        .refresh-btn { padding: 12px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; font-size: 16px; }
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
         #right-pane { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px; }
@@ -28,6 +30,10 @@
             <div id="live-clock"></div>
         </div>
 
+        <div id="controls">
+            <button class="refresh-btn" onclick="loadData(true)">🔄 手動更新數據</button>
+        </div>
+
         <div class="content-wrapper">
             <div id="left-pane">
                 <div id="table-container">
@@ -42,7 +48,7 @@
                 </div>
                 <div class="prediction-box">
                     <h4>智能平衡選號</h4>
-                    <label>選號數量(1-10): <input type="number" id="num-count" value="5" min="1" max="10"></label>
+                    <label>選號數量: <input type="number" id="num-count" value="5" min="1" max="10"></label>
                     <button onclick="generatePrediction()">執行智能選號</button>
                     <p id="prediction-result" style="font-size: 1.2em; font-weight:bold; color:#2c3e50;"></p>
                 </div>
@@ -54,6 +60,7 @@
         let allGroupedData = {};
         let currentSortedStats = [];
 
+        // 更新時鐘
         function updateClock() {
             const now = new Date();
             document.getElementById('live-clock').innerText = "系統時間: " + now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
@@ -61,7 +68,8 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        function loadData() {
+        // 載入資料
+        function loadData(isManual = false) {
             Papa.parse("data.csv?t=" + new Date().getTime(), {
                 download: true, header: true, skipEmptyLines: true,
                 complete: function(results) {
@@ -72,8 +80,9 @@
                         }
                         return acc;
                     }, {});
-                    const date = Object.keys(allGroupedData).sort().reverse()[0];
-                    renderView(date);
+                    const latestDate = Object.keys(allGroupedData).sort().reverse()[0];
+                    renderView(latestDate);
+                    if(isManual) alert("數據已更新！");
                 }
             });
         }
@@ -110,26 +119,21 @@
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
             if (currentSortedStats.length === 0) return;
-
-            // 智能邏輯：取熱門與冷門的混合
-            // 比例分配：3/4 取熱門，1/4 取冷門（修正機率分佈）
             const hot = currentSortedStats.slice(0, 10);
             const cold = currentSortedStats.slice(-10);
-            
             let result = [];
             for (let i = 0; i < count; i++) {
-                // 輪流選：熱門、熱門、冷門，循環選取
+                // 每3個號碼中，2個選熱門，1個選冷門
                 if (i % 3 !== 2) {
                     result.push(hot[i % hot.length][0]);
                 } else {
                     result.push(cold[i % cold.length][0]);
                 }
             }
-            
-            document.getElementById('prediction-result').innerText = 
-                "推薦: " + result.sort((a,b)=>a-b).join(', ');
+            document.getElementById('prediction-result').innerText = "推薦: " + result.sort((a,b)=>a-b).join(', ');
         }
 
+        // 5秒自動更新
         setInterval(() => loadData(), 5000);
         loadData();
     </script>
