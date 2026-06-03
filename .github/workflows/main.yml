@@ -5,7 +5,8 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '0 8 * * *' # 每天早上 8 點自動執行
+    # 從第 3 分鐘開始，每 5 分鐘執行一次 (3, 8, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58)
+    - cron: '3-59/5 * * * *'
 
 jobs:
   build:
@@ -13,10 +14,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
           
@@ -27,7 +28,7 @@ jobs:
         run: python main.py
         
       - name: Upload debug file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: debug-info
           path: raw.txt
