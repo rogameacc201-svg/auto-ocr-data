@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 數據統計與推薦</title>
+    <title>儀表板 - 智能分析</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
         .container { max-width: 1100px; margin: 0 auto; }
         .header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        #controls { margin-bottom: 20px; text-align: center; }
+        #live-clock { font-size: 1.1em; color: #d35400; font-weight: bold; }
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
         #right-pane { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px; }
@@ -18,16 +18,14 @@
         th { position: sticky; top: 0; background: #2c3e50; color: white; padding: 10px; }
         td { border: 1px solid #eee; padding: 8px; text-align: center; }
         .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; }
-        .prediction-box { background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffeeba; }
+        .prediction-box { background: #e8f6f3; padding: 15px; border-radius: 8px; border: 1px solid #1abc9c; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header-box"><h2>即時儀表板</h2><div id="live-clock"></div></div>
-
-        <div id="controls">
-            <select id="date-select"></select>
-            <button class="refresh-btn" onclick="loadData(true)">🔄 更新</button>
+        <div class="header-box">
+            <h2>即時儀表板</h2>
+            <div id="live-clock"></div>
         </div>
 
         <div class="content-wrapper">
@@ -37,12 +35,16 @@
                 </div>
             </div>
             <div id="right-pane">
-                <div class="stats-box"><div id="top-stats"></div><div id="bottom-stats"></div></div>
+                <div class="stats-box">
+                    <div id="top-stats"></div>
+                    <hr>
+                    <div id="bottom-stats"></div>
+                </div>
                 <div class="prediction-box">
-                    <h4>智能推薦號碼</h4>
-                    <label>選擇數量: <input type="number" id="num-count" value="5" min="1" max="10"></label>
-                    <button onclick="generatePrediction()">產生推薦</button>
-                    <p id="prediction-result" style="font-weight:bold; color:#d35400;"></p>
+                    <h4>智能平衡選號</h4>
+                    <label>選號數量(1-10): <input type="number" id="num-count" value="5" min="1" max="10"></label>
+                    <button onclick="generatePrediction()">執行智能選號</button>
+                    <p id="prediction-result" style="font-size: 1.2em; font-weight:bold; color:#2c3e50;"></p>
                 </div>
             </div>
         </div>
@@ -50,9 +52,16 @@
 
     <script>
         let allGroupedData = {};
-        let currentSortedStats = []; // 存儲統計結果
+        let currentSortedStats = [];
 
-        function loadData(isManual = false) {
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = "系統時間: " + now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function loadData() {
             Papa.parse("data.csv?t=" + new Date().getTime(), {
                 download: true, header: true, skipEmptyLines: true,
                 complete: function(results) {
@@ -63,17 +72,8 @@
                         }
                         return acc;
                     }, {});
-
-                    const select = document.getElementById('date-select');
-                    const currentValue = select.value;
-                    select.innerHTML = '';
-                    Object.keys(allGroupedData).sort().reverse().forEach(date => {
-                        let opt = document.createElement('option');
-                        opt.value = date; opt.innerText = date;
-                        select.appendChild(opt);
-                    });
-                    select.value = (isManual && currentValue) ? currentValue : select.options[0].value;
-                    renderView(select.value);
+                    const date = Object.keys(allGroupedData).sort().reverse()[0];
+                    renderView(date);
                 }
             });
         }
@@ -92,6 +92,7 @@
 
         function calculateStats(rows) {
             let counts = {};
+            const total = rows.length;
             rows.forEach(r => {
                 for(let i=1; i<=20; i++) {
                     let val = r[`號碼${i}`];
@@ -100,26 +101,36 @@
             });
             currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             
-            const total = rows.length;
-            document.getElementById('top-stats').innerHTML = "<h4>次數最多</h4><ul>" + 
-                currentSortedStats.slice(0,5).map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
-            document.getElementById('bottom-stats').innerHTML = "<h4>次數最少</h4><ul>" + 
-                currentSortedStats.slice(-5).reverse().map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
+            document.getElementById('top-stats').innerHTML = "<h4>次數最多 (Top 10)</h4><ul>" + 
+                currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>次數最少 (Bottom 10)</h4><ul>" + 
+                currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
         }
 
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
             if (currentSortedStats.length === 0) return;
 
-            // 邏輯：從熱門(前1/3)與冷門(後1/3)中混合選取
-            let pool = currentSortedStats.slice(0, 10).concat(currentSortedStats.slice(-10));
-            let selected = pool.sort(() => 0.5 - Math.random()).slice(0, count);
+            // 智能邏輯：取熱門與冷門的混合
+            // 比例分配：3/4 取熱門，1/4 取冷門（修正機率分佈）
+            const hot = currentSortedStats.slice(0, 10);
+            const cold = currentSortedStats.slice(-10);
+            
+            let result = [];
+            for (let i = 0; i < count; i++) {
+                // 輪流選：熱門、熱門、冷門，循環選取
+                if (i % 3 !== 2) {
+                    result.push(hot[i % hot.length][0]);
+                } else {
+                    result.push(cold[i % cold.length][0]);
+                }
+            }
             
             document.getElementById('prediction-result').innerText = 
-                "推薦號碼: " + selected.map(x => x[0]).sort((a,b)=>a-b).join(', ');
+                "推薦: " + result.sort((a,b)=>a-b).join(', ');
         }
 
-        setInterval(() => loadData(true), 5000);
+        setInterval(() => loadData(), 5000);
         loadData();
     </script>
 </body>
