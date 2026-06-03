@@ -2,37 +2,45 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>賓果開獎統計儀表板</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賓果統計儀表板</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        body { display: flex; font-family: sans-serif; margin: 0; background-color: #f4f7f6; }
-        #sidebar { width: 200px; padding: 20px; background: #2c3e50; color: white; height: 100vh; overflow-y: auto; }
-        #main { padding: 30px; flex-grow: 1; display: flex; gap: 20px; }
-        #data-view { flex-grow: 2; }
-        #stats-view { flex-grow: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        button { width: 100%; padding: 10px; margin-bottom: 5px; cursor: pointer; background: #34495e; color: white; border: none; }
-        table { border-collapse: collapse; width: 100%; background: white; margin-top: 10px; }
+        body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; }
+        #app { display: flex; flex-direction: column; height: 100vh; }
+        header { background: #2c3e50; color: white; padding: 15px; text-align: center; }
+        #main { display: flex; flex-direction: column; padding: 10px; flex-grow: 1; overflow-y: auto; }
+        
+        /* 響應式佈局：大螢幕水平，小螢幕垂直 */
+        @media (min-width: 768px) {
+            #main { flex-direction: row; gap: 20px; }
+            #sidebar { width: 300px; }
+        }
+
+        select { width: 100%; padding: 12px; font-size: 16px; margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; background: white; font-size: 14px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .stats-box { background: white; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid #ccc; }
     </style>
 </head>
 <body>
-    <div id="sidebar"><h3>選擇日期</h3><div id="date-list"></div></div>
+    <header>賓果開獎統計</header>
     <div id="main">
-        <div id="data-view">
-            <h1 id="current-date">請選擇日期</h1>
+        <div id="sidebar">
+            <h3>選擇日期</h3>
+            <select id="date-select"></select>
             <div id="draws-table"></div>
         </div>
-        <div id="stats-view">
-            <h3>統計分析 (開出率)</h3>
-            <div id="stats-content">請選擇日期以查看統計</div>
+        <div id="stats-view" class="stats-box">
+            <h3>統計分析 (選定日期內)</h3>
+            <div id="stats-content">請從下拉選單選擇日期</div>
         </div>
     </div>
     <script>
         Papa.parse("data.csv?t=" + new Date().getTime(), {
             download: true, header: true, skipEmptyLines: true,
             complete: function(results) {
-                const data = results.data;
-                const grouped = data.reduce((acc, r) => {
+                const grouped = results.data.reduce((acc, r) => {
                     if (r.日期) {
                         if (!acc[r.日期]) acc[r.日期] = [];
                         acc[r.日期].push(r);
@@ -40,46 +48,46 @@
                     return acc;
                 }, {});
 
+                const select = document.getElementById('date-select');
                 Object.keys(grouped).sort().reverse().forEach(date => {
-                    const btn = document.createElement('button');
-                    btn.innerText = date;
-                    btn.onclick = () => {
-                        // 1. 顯示開獎內容
-                        document.getElementById('current-date').innerText = date;
-                        let h = "<table><tr><th>期別</th><th>號碼</th></tr>";
-                        grouped[date].forEach(r => {
-                            let nums = Object.keys(r).filter(k => k.startsWith('號碼')).map(k => r[k]);
-                            h += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
-                        });
-                        document.getElementById('draws-table').innerHTML = h + "</table>";
-
-                        // 2. 計算統計
-                        calculateStats(grouped[date]);
-                    };
-                    document.getElementById('date-list').appendChild(btn);
+                    let opt = document.createElement('option');
+                    opt.value = date;
+                    opt.innerText = date;
+                    select.appendChild(opt);
                 });
+
+                select.onchange = function() {
+                    const date = this.value;
+                    const rows = grouped[date];
+                    
+                    // 只顯示最後 10 筆
+                    let latest10 = rows.slice(-10).reverse();
+                    let h = "<table><tr><th>期別</th><th>號碼</th></tr>";
+                    latest10.forEach(r => {
+                        let nums = Object.keys(r).filter(k => k.startsWith('號碼')).map(k => r[k]);
+                        h += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
+                    });
+                    document.getElementById('draws-table').innerHTML = h + "</table>";
+
+                    // 統計計算
+                    calculateStats(rows);
+                };
+                select.onchange(); // 初始化
             }
         });
 
         function calculateStats(rows) {
             let counts = {};
-            let totalDraws = rows.length;
             rows.forEach(r => {
                 for(let i=1; i<=20; i++) {
                     let val = r[`號碼${i}`];
                     if(val) counts[val] = (counts[val] || 0) + 1;
                 }
             });
-
             let sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-            let top10 = sorted.slice(0, 10);
-            let bottom10 = sorted.slice(-10).reverse();
-
-            let html = "<h4>次數最多 (Top 10)</h4><ul>";
-            top10.forEach(x => html += `<li>${x[0]}: ${x[1]}次 (${(x[1]/totalDraws*100).toFixed(1)}%)</li>`);
-            html += "</ul><h4>次數最少 (Bottom 10)</h4><ul>";
-            bottom10.forEach(x => html += `<li>${x[0]}: ${x[1]}次 (${(x[1]/totalDraws*100).toFixed(1)}%)</li>`);
-            document.getElementById('stats-content').innerHTML = html + "</ul>";
+            let html = "<h4>Top 10</h4><ul>" + sorted.slice(0,10).map(x => `<li>${x[0]}: ${(x[1]/rows.length*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            html += "<h4>Bottom 10</h4><ul>" + sorted.slice(-10).reverse().map(x => `<li>${x[0]}: ${(x[1]/rows.length*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('stats-content').innerHTML = html;
         }
     </script>
 </body>
