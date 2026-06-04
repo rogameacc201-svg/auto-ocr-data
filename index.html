@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 智能分析</title>
+    <title>儀表板</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
@@ -13,7 +13,7 @@
         #controls { margin-bottom: 20px; text-align: center; }
         select { padding: 10px; font-size: 16px; margin-right: 10px; }
         .refresh-btn { padding: 10px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; }
-        .manual-input-zone { margin: 15px 0; display: flex; justify-content: center; gap: 5px; }
+        .manual-input-zone { margin: 15px 0; display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; }
         .manual-input-zone input { width: 35px; padding: 5px; text-align: center; border: 1px solid #999; }
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
@@ -23,21 +23,21 @@
         th { position: sticky; top: 0; background: #2c3e50; color: white; padding: 10px; }
         td { border: 1px solid #eee; padding: 8px; text-align: center; }
         .highlight { border: 2px solid red !important; color: red; font-weight: bold; padding: 2px; border-radius: 3px; }
-        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; }
+        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.9em; }
         .prediction-box { background: #e8f6f3; padding: 15px; border-radius: 8px; border: 1px solid #1abc9c; }
+        ul { padding-left: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header-box">
-            <h2>即時儀表板</h2>
+            <h2>儀表板</h2>
             <div id="live-clock"></div>
         </div>
 
         <div id="controls">
             <select id="date-select" onchange="renderView(this.value)"></select>
             <button class="refresh-btn" onclick="loadData(true)">🔄 更新數據</button>
-            
             <div style="margin-top: 15px; font-weight: bold; color: #34495e;">請輸入你選的號碼：</div>
             <div class="manual-input-zone" id="manual-inputs"></div>
         </div>
@@ -74,11 +74,7 @@
 
         let allGroupedData = {}, currentSortedStats = [], totalDraws = 0;
 
-        // 【恢復定時器：每 60 秒自動重新讀取一次數據】
-        setInterval(() => {
-            console.log("自動更新數據中...");
-            loadData();
-        }, 60000);
+        setInterval(() => loadData(), 60000); // 每60秒自動更新
 
         function loadData() {
             Papa.parse("data.csv?t=" + new Date().getTime(), {
@@ -93,15 +89,14 @@
                     }, {});
                     const dates = Object.keys(allGroupedData).sort().reverse();
                     const select = document.getElementById('date-select');
-                    const currentValue = select.value;
+                    const currentVal = select.value;
                     select.innerHTML = '';
                     dates.forEach(d => {
                         let opt = document.createElement('option');
                         opt.value = d; opt.innerText = d;
                         select.appendChild(opt);
                     });
-                    // 若有選日期則維持，沒有則選最新
-                    select.value = currentValue || dates[0];
+                    select.value = currentVal || dates[0];
                     renderView(select.value);
                 }
             });
@@ -112,8 +107,10 @@
             rows.forEach(r => { for(let i=1; i<=20; i++) { let val = r[`號碼${i}`]; if(val) counts[val] = (counts[val] || 0) + 1; } });
             currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             
-            document.getElementById('top-stats').innerHTML = "<h4>熱門 (Top 10)</h4><ul>" + currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
-            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (Bottom 10)</h4><ul>" + currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('top-stats').innerHTML = "<h4>熱門 (Top 10)</h4><ul>" + 
+                currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/totalDraws)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (Bottom 10)</h4><ul>" + 
+                currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/totalDraws)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
         }
 
         function renderView(date) {
@@ -140,6 +137,7 @@
             const now = new Date();
             const hour = parseInt(now.toLocaleString("en-US", {timeZone: "Asia/Taipei", hour: 'numeric', hour12: false}));
             const isNight = hour >= 20;
+
             let result = [];
             for (let i = 0; i < count; i++) {
                 let source = (isNight ? (i % 3 !== 2) : (i % 3 === 2)) ? cold : hot;
