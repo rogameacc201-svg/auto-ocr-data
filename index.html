@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 趨勢模擬分析</title>
+    <title>儀表板 - 智能分析</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
@@ -27,7 +27,7 @@
 <body>
     <div class="container">
         <div class="header-box">
-            <h2>即時儀表板 (趨勢模擬版)</h2>
+            <h2>即時儀表板</h2>
             <div id="live-clock"></div>
         </div>
 
@@ -49,9 +49,9 @@
                     <div id="bottom-stats"></div>
                 </div>
                 <div class="prediction-box">
-                    <h4>智能趨勢選號</h4>
-                    <label>選號數量: <input type="number" id="num-count" value="5" min="1" max="20"></label>
-                    <button onclick="generatePrediction()">執行模擬選號</button>
+                    <h4>智能平衡選號</h4>
+                    <label>選號數量: <input type="number" id="num-count" value="5" min="1" max="10"></label>
+                    <button onclick="generatePrediction()">執行智能選號</button>
                     <p id="prediction-result" style="font-size: 1.2em; font-weight:bold; color:#2c3e50;"></p>
                 </div>
             </div>
@@ -90,6 +90,7 @@
                         select.appendChild(opt);
                     });
                     
+                    // 恢復之前的選擇，若沒有則選最新日期
                     select.value = savedValue || Object.keys(allGroupedData).sort().reverse()[0];
                     renderView(select.value);
                 }
@@ -119,42 +120,27 @@
             });
             currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             
-            document.getElementById('top-stats').innerHTML = "<h4>熱門號碼 (Top 10)</h4><ul>" + 
-                currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
+            document.getElementById('top-stats').innerHTML = "<h4>次數最多 (Top 10)</h4><ul>" + 
+                currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>次數最少 (Bottom 10)</h4><ul>" + 
+                currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
         }
 
-        // 趨勢模擬演算法：模擬連號與群聚效應
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
             if (currentSortedStats.length === 0) return;
-            
-            let prediction = new Set();
-            let attempts = 0;
-            
-            // 使用統計熱度作為種子，模擬歷史中的「熱源群聚」
-            while (prediction.size < count && attempts < 1000) {
-                let seed;
-                // 70% 機率選熱門號碼做種子，30% 機率隨機選
-                if (Math.random() < 0.7) {
-                    seed = parseInt(currentSortedStats[Math.floor(Math.random() * 10)][0]);
+            const hot = currentSortedStats.slice(0, 10);
+            const cold = currentSortedStats.slice(-10);
+            let result = [];
+            for (let i = 0; i < count; i++) {
+                // 每3個號碼中，2個選熱門，1個選冷門
+                if (i % 3 !== 2) {
+                    result.push(hot[i % hot.length][0]);
                 } else {
-                    seed = Math.floor(Math.random() * 80) + 1;
+                    result.push(cold[i % cold.length][0]);
                 }
-                
-                // 模擬連號：隨機產生長度 1-3 的簇狀號碼 (Cluster Generation)
-                let clusterSize = Math.floor(Math.random() * 3) + 1;
-                for (let i = 0; i < clusterSize; i++) {
-                    let num = seed + i;
-                    if (num >= 1 && num <= 80) {
-                        prediction.add(num);
-                    }
-                    if (prediction.size >= count) break;
-                }
-                attempts++;
             }
-            
-            const result = Array.from(prediction).sort((a, b) => a - b);
-            document.getElementById('prediction-result').innerText = "推薦: " + result.map(n => String(n).padStart(2, '0')).join(', ');
+            document.getElementById('prediction-result').innerText = "推薦: " + result.sort((a,b)=>a-b).join(', ');
         }
 
         setInterval(() => loadData(), 5000);
