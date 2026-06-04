@@ -6,10 +6,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '*/5 * * * *'
-  # 新增這個：這會讓它在每次有 Commit 時，確保 workflow 被檢查
-  watch:
-    types: [started]
-
 
 jobs:
   build:
@@ -24,32 +20,21 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          
+      
       - name: Install dependencies
         run: pip install beautifulsoup4 pandas requests pytz
-          
+      
       - name: Run script
         run: python main.py
-          
+      
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 暫存目前的 data.csv
-          git add data.csv
-          git stash
-          
-          # 2. 強制拉取遠端最新進度，解決衝突
-          git fetch origin main
-          git reset --hard origin/main
-          
-          # 3. 恢復我們剛剛產生的新 data.csv
-          git stash pop || echo "無暫存資料"
-          
-          # 4. 提交並推播
-          git add data.csv
-          if ! git diff --cached --quiet; then
+          # 檢查是否有變更
+          if [ -n "$(git status --porcelain data.csv)" ]; then
+            git add data.csv
             git commit -m "Auto-update data.csv"
             git push origin main
           else
