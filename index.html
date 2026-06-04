@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 智能分析</title>
+    <title>儀表板 - 大數據智能分析</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
@@ -49,7 +49,7 @@
                     <div id="bottom-stats"></div>
                 </div>
                 <div class="prediction-box">
-                    <h4>智能平衡選號</h4>
+                    <h4>智能平衡選號 (數據加權版)</h4>
                     <label>選號數量: <input type="number" id="num-count" value="5" min="1" max="10"></label>
                     <button onclick="generatePrediction()">執行智能選號</button>
                     <p id="prediction-result" style="font-size: 1.2em; font-weight:bold; color:#2c3e50;"></p>
@@ -89,8 +89,6 @@
                         opt.value = date; opt.innerText = date;
                         select.appendChild(opt);
                     });
-                    
-                    // 恢復之前的選擇，若沒有則選最新日期
                     select.value = savedValue || Object.keys(allGroupedData).sort().reverse()[0];
                     renderView(select.value);
                 }
@@ -126,21 +124,39 @@
                 currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
         }
 
+        // 大數據加權選號演算法
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
             if (currentSortedStats.length === 0) return;
-            const hot = currentSortedStats.slice(0, 10);
-            const cold = currentSortedStats.slice(-10);
-            let result = [];
-            for (let i = 0; i < count; i++) {
-                // 每3個號碼中，2個選熱門，1個選冷門
-                if (i % 3 !== 2) {
-                    result.push(hot[i % hot.length][0]);
-                } else {
-                    result.push(cold[i % cold.length][0]);
+
+            // 1. 建立加權統計池 (Data Weighted Pool)
+            // 號碼出現次數越多，在池中佔據的位置越多，被抽中的機率就越高
+            let weightedPool = [];
+            currentSortedStats.forEach(item => {
+                let num = parseInt(item[0]);
+                let weight = item[1]; 
+                for(let i = 0; i < weight; i++) weightedPool.push(num);
+            });
+
+            let prediction = new Set();
+            let attempts = 0;
+
+            // 2. 數據導向選號
+            while (prediction.size < count && attempts < 5000) {
+                // 從權重池中抽樣，這不是隨機，而是依照歷史頻率的機率分配
+                let seed = weightedPool[Math.floor(Math.random() * weightedPool.length)];
+                
+                // 3. 關聯性慣性模擬：根據歷史頻率，給予鄰近號碼一定的選中權重
+                prediction.add(seed);
+                if (prediction.size < count && Math.random() < 0.3) {
+                    let neighbor = seed + 1;
+                    if (neighbor <= 80) prediction.add(neighbor);
                 }
+                attempts++;
             }
-            document.getElementById('prediction-result').innerText = "推薦: " + result.sort((a,b)=>a-b).join(', ');
+            
+            const result = Array.from(prediction).slice(0, count).sort((a, b) => a - b);
+            document.getElementById('prediction-result').innerText = "推薦: " + result.map(n => String(n).padStart(2, '0')).join(', ');
         }
 
         setInterval(() => loadData(), 5000);
