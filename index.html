@@ -13,11 +13,8 @@
         #controls { margin-bottom: 20px; text-align: center; }
         select { padding: 10px; font-size: 16px; margin-right: 10px; }
         .refresh-btn { padding: 10px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; }
-        
-        /* 10個輸入框專屬區域 */
         .manual-input-zone { margin: 15px 0; display: flex; justify-content: center; gap: 5px; }
         .manual-input-zone input { width: 35px; padding: 5px; text-align: center; border: 1px solid #999; }
-        
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
         #right-pane { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px; }
@@ -25,10 +22,7 @@
         table { width: 100%; border-collapse: collapse; }
         th { position: sticky; top: 0; background: #2c3e50; color: white; padding: 10px; }
         td { border: 1px solid #eee; padding: 8px; text-align: center; }
-        
-        /* 高亮樣式 */
         .highlight { border: 2px solid red !important; color: red; font-weight: bold; padding: 2px; border-radius: 3px; }
-        
         .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; }
         .prediction-box { background: #e8f6f3; padding: 15px; border-radius: 8px; border: 1px solid #1abc9c; }
     </style>
@@ -68,7 +62,6 @@
     </div>
 
     <script>
-        // 初始化輸入框
         const inputZone = document.getElementById('manual-inputs');
         for(let i=0; i<10; i++) {
             let inp = document.createElement('input');
@@ -78,35 +71,6 @@
         }
 
         let allGroupedData = {}, currentSortedStats = [], totalDraws = 0;
-
-        function renderView(date) {
-            const rows = allGroupedData[date];
-            if (!rows) return;
-            const tbody = document.querySelector("#draws-table tbody");
-            tbody.innerHTML = '';
-            
-            // 取得使用者輸入的數字陣列
-            const userNums = Array.from(document.querySelectorAll('.manual-input-zone input'))
-                                  .map(i => i.value.trim()).filter(v => v !== "");
-
-            rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
-                let numsHTML = [];
-                for(let i=1; i<=20; i++) {
-                    let val = r[`號碼${i}`];
-                    // 若數字在輸入框中，給予 highlight 類別
-                    let css = userNums.includes(val) ? 'class="highlight"' : '';
-                    numsHTML.push(`<span ${css}>${val}</span>`);
-                }
-                tbody.innerHTML += `<tr><td>${r.期別}</td><td>${numsHTML.join(', ')}</td></tr>`;
-            });
-            calculateStats(rows);
-        }
-
-        // ... 保留你原有的 loadData, calculateStats, generatePrediction 函數 ...
-        // (為了完整性，請確保你原有的邏輯代碼放在下面)
-        
-        // ... [請將你之前的 loadData, calculateStats, generatePrediction 函數放回此處] ...
-        // 為了確保運作，我將這些函數合併在這裡：
 
         function loadData() {
             Papa.parse("data.csv?t=" + new Date().getTime(), {
@@ -136,10 +100,33 @@
             let counts = {}; totalDraws = rows.length;
             rows.forEach(r => { for(let i=1; i<=20; i++) { let val = r[`號碼${i}`]; if(val) counts[val] = (counts[val] || 0) + 1; } });
             currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            
+            document.getElementById('top-stats').innerHTML = "<h4>熱門 (準備冷卻)</h4><ul>" + currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (準備反彈)</h4><ul>" + currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+        }
+
+        function renderView(date) {
+            const rows = allGroupedData[date];
+            if (!rows) return;
+            const tbody = document.querySelector("#draws-table tbody");
+            tbody.innerHTML = '';
+            
+            const userNums = Array.from(document.querySelectorAll('.manual-input-zone input'))
+                                  .map(i => i.value.trim()).filter(v => v !== "");
+
+            rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
+                let numsHTML = [];
+                for(let i=1; i<=20; i++) {
+                    let val = r[`號碼${i}`];
+                    let css = userNums.includes(val) ? 'class="highlight"' : '';
+                    numsHTML.push(`<span ${css}>${val}</span>`);
+                }
+                tbody.innerHTML += `<tr><td>${r.期別}</td><td>${numsHTML.join(', ')}</td></tr>`;
+            });
+            calculateStats(rows);
         }
 
         function generatePrediction() {
-            // (這就是你確認過的那個邏輯)
             let weightedPool = [];
             currentSortedStats.forEach(item => {
                 let num = parseInt(item[0]);
