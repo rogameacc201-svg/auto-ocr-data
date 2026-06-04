@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 統計邊界選號</title>
+    <title>儀表板 - 統計邊界分析</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
@@ -27,7 +27,7 @@
 <body>
     <div class="container">
         <div class="header-box">
-            <h2>即時儀表板 - 邊界追蹤法</h2>
+            <h2>即時儀表板 (統計邊界版)</h2>
             <div id="live-clock"></div>
         </div>
 
@@ -49,9 +49,9 @@
                     <div id="bottom-stats"></div>
                 </div>
                 <div class="prediction-box">
-                    <h4>統計邊界選號</h4>
-                    <label>選號數量: <input type="number" id="num-count" value="5" min="1" max="10"></label>
-                    <button onclick="generatePrediction()">執行選號</button>
+                    <h4>智能平衡選號 (10熱 + 10冷)</h4>
+                    <label>選號數量: <input type="number" id="num-count" value="10" min="1" max="20"></label>
+                    <button onclick="generatePrediction()">執行統計選號</button>
                     <p id="prediction-result" style="font-size: 1.2em; font-weight:bold; color:#2c3e50;"></p>
                 </div>
             </div>
@@ -63,7 +63,6 @@
         let currentSortedStats = [];
         let totalDraws = 0;
 
-        // 更新時鐘與讀取數據邏輯
         function updateClock() {
             const now = new Date();
             document.getElementById('live-clock').innerText = "系統時間: " + now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
@@ -82,8 +81,6 @@
                         }
                         return acc;
                     }, {});
-                    
-                    // 獲取最新日期並顯示
                     const dates = Object.keys(allGroupedData).sort().reverse();
                     const select = document.getElementById('date-select');
                     select.innerHTML = '';
@@ -107,9 +104,8 @@
                 }
             });
             currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-            // 顯示 Top/Bottom 統計
-            document.getElementById('top-stats').innerHTML = "<h4>熱門(接近32%)</h4><ul>" + currentSortedStats.slice(0,5).map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
-            document.getElementById('bottom-stats').innerHTML = "<h4>冷門(接近17%)</h4><ul>" + currentSortedStats.slice(-5).reverse().map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('top-stats').innerHTML = "<h4>熱門 (Top 10)</h4><ul>" + currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (Bottom 10)</h4><ul>" + currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
         }
 
         function renderView(date) {
@@ -124,31 +120,30 @@
             calculateStats(rows);
         }
 
-        // 核心選號：利用 32% / 17% 邊界進行濾網過濾
+        // 核心邏輯：依照統計邊界與熱冷比例選號，非純隨機
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
-            // 將機率分佈作為選號過濾器
-            // 將所有號碼依據當前統計百分比分類
-            const targetPool = currentSortedStats.filter(item => {
+            // 1. 建立符合統計區間 (15%-35%) 的有效號碼池
+            const validPool = currentSortedStats.filter(item => {
                 let pct = (item[1] / totalDraws) * 100;
-                // 核心邏輯：選取介於 17% 與 32% 之間的「動態平衡號碼」
-                return pct >= 17 && pct <= 32;
-            }).map(x => parseInt(x[0]));
+                return pct >= 15 && pct <= 35;
+            });
 
-            if (targetPool.length < count) {
-                document.getElementById('prediction-result').innerText = "數據不足，無法滿足邊界條件";
-                return;
-            }
-
-            // 在高機率區間內進行排列組合
+            // 2. 切分熱門與冷門
+            const hot = validPool.slice(0, 10);
+            const cold = validPool.slice(-10);
+            
             let result = [];
-            while(result.length < count) {
-                let candidate = targetPool[Math.floor(Math.random() * targetPool.length)];
-                if(!result.includes(candidate)) result.push(candidate);
+            // 3. 穩定輪詢機制 (取代隨機)
+            for (let i = 0; i < count; i++) {
+                // 每3個號碼中，2個選熱門，1個選冷門
+                let source = (i % 3 !== 2) ? hot : cold;
+                let candidate = source[i % source.length][0];
+                result.push(parseInt(candidate));
             }
             
-            result.sort((a, b) => a - b);
-            document.getElementById('prediction-result').innerText = "推薦: " + result.map(n => String(n).padStart(2, '0')).join(', ');
+            const finalResult = Array.from(new Set(result)).sort((a, b) => a - b);
+            document.getElementById('prediction-result').innerText = "推薦: " + finalResult.map(n => String(n).padStart(2, '0')).join(', ');
         }
         
         loadData();
