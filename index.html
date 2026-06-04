@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 統計邊界與時間策略</title>
+    <title>儀表板 - 智能分析</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
@@ -30,13 +30,15 @@
 <body>
     <div class="container">
         <div class="header-box">
-            <h2>即時儀表板 (統計邊界與時間策略)</h2>
+            <h2>即時儀表板</h2>
             <div id="live-clock"></div>
         </div>
 
         <div id="controls">
             <select id="date-select" onchange="renderView(this.value)"></select>
             <button class="refresh-btn" onclick="loadData(true)">🔄 更新數據</button>
+            
+            <div style="margin-top: 15px; font-weight: bold; color: #34495e;">請輸入你選的號碼：</div>
             <div class="manual-input-zone" id="manual-inputs"></div>
         </div>
 
@@ -52,7 +54,7 @@
                     <div id="bottom-stats"></div>
                 </div>
                 <div class="prediction-box">
-                    <h4>智能選號 (邊界與時間策略)</h4>
+                    <h4>智能選號 (統計與時間策略)</h4>
                     <input type="number" id="num-count" value="10" style="width:50px;">
                     <button onclick="generatePrediction()">執行選號</button>
                     <p id="prediction-result" style="font-weight:bold;"></p>
@@ -62,7 +64,6 @@
     </div>
 
     <script>
-        // 初始化輸入框
         const inputZone = document.getElementById('manual-inputs');
         for(let i=0; i<10; i++) {
             let inp = document.createElement('input');
@@ -111,6 +112,7 @@
             if (!rows) return;
             const tbody = document.querySelector("#draws-table tbody");
             tbody.innerHTML = '';
+            
             const userNums = Array.from(document.querySelectorAll('.manual-input-zone input')).map(i => i.value.trim()).filter(v => v !== "");
             rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
                 let numsHTML = [];
@@ -125,18 +127,15 @@
 
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
-            // 策略：依照 15%-35% 統計邊界篩選熱冷號
             const hot = currentSortedStats.slice(0, 10).map(x => parseInt(x[0]));
             const cold = currentSortedStats.slice(-10).reverse().map(x => parseInt(x[0]));
             
-            // 時間策略：20:00 前熱門優先，後冷門優先
             const now = new Date();
             const hour = parseInt(now.toLocaleString("en-US", {timeZone: "Asia/Taipei", hour: 'numeric', hour12: false}));
             const isNight = hour >= 20;
 
             let result = [];
             for (let i = 0; i < count; i++) {
-                // 晚上：每3個選2個冷門，1個熱門；白天反之
                 let source = (isNight ? (i % 3 !== 2) : (i % 3 === 2)) ? cold : hot;
                 result.push(source[i % source.length]);
             }
