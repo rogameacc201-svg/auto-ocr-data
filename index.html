@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 大數據智能分析</title>
+    <title>儀表板 - 統計邊界選號</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
@@ -27,7 +27,7 @@
 <body>
     <div class="container">
         <div class="header-box">
-            <h2>即時儀表板</h2>
+            <h2>即時儀表板 - 邊界追蹤法</h2>
             <div id="live-clock"></div>
         </div>
 
@@ -49,9 +49,9 @@
                     <div id="bottom-stats"></div>
                 </div>
                 <div class="prediction-box">
-                    <h4>智能平衡選號 (數據加權版)</h4>
+                    <h4>統計邊界選號</h4>
                     <label>選號數量: <input type="number" id="num-count" value="5" min="1" max="10"></label>
-                    <button onclick="generatePrediction()">執行智能選號</button>
+                    <button onclick="generatePrediction()">執行選號</button>
                     <p id="prediction-result" style="font-size: 1.2em; font-weight:bold; color:#2c3e50;"></p>
                 </div>
             </div>
@@ -61,7 +61,9 @@
     <script>
         let allGroupedData = {};
         let currentSortedStats = [];
+        let totalDraws = 0;
 
+        // 更新時鐘與讀取數據邏輯
         function updateClock() {
             const now = new Date();
             document.getElementById('live-clock').innerText = "系統時間: " + now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
@@ -80,19 +82,34 @@
                         }
                         return acc;
                     }, {});
-
+                    
+                    // 獲取最新日期並顯示
+                    const dates = Object.keys(allGroupedData).sort().reverse();
                     const select = document.getElementById('date-select');
-                    const savedValue = select.value;
                     select.innerHTML = '';
-                    Object.keys(allGroupedData).sort().reverse().forEach(date => {
+                    dates.forEach(d => {
                         let opt = document.createElement('option');
-                        opt.value = date; opt.innerText = date;
+                        opt.value = d; opt.innerText = d;
                         select.appendChild(opt);
                     });
-                    select.value = savedValue || Object.keys(allGroupedData).sort().reverse()[0];
-                    renderView(select.value);
+                    renderView(dates[0]);
                 }
             });
+        }
+
+        function calculateStats(rows) {
+            let counts = {};
+            totalDraws = rows.length;
+            rows.forEach(r => {
+                for(let i=1; i<=20; i++) {
+                    let val = r[`號碼${i}`];
+                    if(val) counts[val] = (counts[val] || 0) + 1;
+                }
+            });
+            currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            // 顯示 Top/Bottom 統計
+            document.getElementById('top-stats').innerHTML = "<h4>熱門(接近32%)</h4><ul>" + currentSortedStats.slice(0,5).map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>冷門(接近17%)</h4><ul>" + currentSortedStats.slice(-5).reverse().map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
         }
 
         function renderView(date) {
@@ -107,59 +124,33 @@
             calculateStats(rows);
         }
 
-        function calculateStats(rows) {
-            let counts = {};
-            const total = rows.length;
-            rows.forEach(r => {
-                for(let i=1; i<=20; i++) {
-                    let val = r[`號碼${i}`];
-                    if(val) counts[val] = (counts[val] || 0) + 1;
-                }
-            });
-            currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-            
-            document.getElementById('top-stats').innerHTML = "<h4>次數最多 (Top 10)</h4><ul>" + 
-                currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
-            document.getElementById('bottom-stats').innerHTML = "<h4>次數最少 (Bottom 10)</h4><ul>" + 
-                currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
-        }
-
-        // 大數據加權選號演算法
+        // 核心選號：利用 32% / 17% 邊界進行濾網過濾
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
-            if (currentSortedStats.length === 0) return;
+            // 將機率分佈作為選號過濾器
+            // 將所有號碼依據當前統計百分比分類
+            const targetPool = currentSortedStats.filter(item => {
+                let pct = (item[1] / totalDraws) * 100;
+                // 核心邏輯：選取介於 17% 與 32% 之間的「動態平衡號碼」
+                return pct >= 17 && pct <= 32;
+            }).map(x => parseInt(x[0]));
 
-            // 1. 建立加權統計池 (Data Weighted Pool)
-            // 號碼出現次數越多，在池中佔據的位置越多，被抽中的機率就越高
-            let weightedPool = [];
-            currentSortedStats.forEach(item => {
-                let num = parseInt(item[0]);
-                let weight = item[1]; 
-                for(let i = 0; i < weight; i++) weightedPool.push(num);
-            });
+            if (targetPool.length < count) {
+                document.getElementById('prediction-result').innerText = "數據不足，無法滿足邊界條件";
+                return;
+            }
 
-            let prediction = new Set();
-            let attempts = 0;
-
-            // 2. 數據導向選號
-            while (prediction.size < count && attempts < 5000) {
-                // 從權重池中抽樣，這不是隨機，而是依照歷史頻率的機率分配
-                let seed = weightedPool[Math.floor(Math.random() * weightedPool.length)];
-                
-                // 3. 關聯性慣性模擬：根據歷史頻率，給予鄰近號碼一定的選中權重
-                prediction.add(seed);
-                if (prediction.size < count && Math.random() < 0.3) {
-                    let neighbor = seed + 1;
-                    if (neighbor <= 80) prediction.add(neighbor);
-                }
-                attempts++;
+            // 在高機率區間內進行排列組合
+            let result = [];
+            while(result.length < count) {
+                let candidate = targetPool[Math.floor(Math.random() * targetPool.length)];
+                if(!result.includes(candidate)) result.push(candidate);
             }
             
-            const result = Array.from(prediction).slice(0, count).sort((a, b) => a - b);
+            result.sort((a, b) => a - b);
             document.getElementById('prediction-result').innerText = "推薦: " + result.map(n => String(n).padStart(2, '0')).join(', ');
         }
-
-        setInterval(() => loadData(), 5000);
+        
         loadData();
     </script>
 </body>
