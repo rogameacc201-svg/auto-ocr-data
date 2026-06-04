@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 智能分析</title>
+    <title>儀表板 - 統計邊界與時間策略</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
@@ -30,7 +30,7 @@
 <body>
     <div class="container">
         <div class="header-box">
-            <h2>即時儀表板</h2>
+            <h2>即時儀表板 (統計邊界與時間策略)</h2>
             <div id="live-clock"></div>
         </div>
 
@@ -52,7 +52,7 @@
                     <div id="bottom-stats"></div>
                 </div>
                 <div class="prediction-box">
-                    <h4>智能選號 (回歸平均法)</h4>
+                    <h4>智能選號 (邊界與時間策略)</h4>
                     <input type="number" id="num-count" value="10" style="width:50px;">
                     <button onclick="generatePrediction()">執行選號</button>
                     <p id="prediction-result" style="font-weight:bold;"></p>
@@ -62,6 +62,7 @@
     </div>
 
     <script>
+        // 初始化輸入框
         const inputZone = document.getElementById('manual-inputs');
         for(let i=0; i<10; i++) {
             let inp = document.createElement('input');
@@ -101,8 +102,8 @@
             rows.forEach(r => { for(let i=1; i<=20; i++) { let val = r[`號碼${i}`]; if(val) counts[val] = (counts[val] || 0) + 1; } });
             currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
             
-            document.getElementById('top-stats').innerHTML = "<h4>熱門 (準備冷卻)</h4><ul>" + currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
-            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (準備反彈)</h4><ul>" + currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('top-stats').innerHTML = "<h4>熱門 (Top 10)</h4><ul>" + currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (Bottom 10)</h4><ul>" + currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
         }
 
         function renderView(date) {
@@ -110,16 +111,12 @@
             if (!rows) return;
             const tbody = document.querySelector("#draws-table tbody");
             tbody.innerHTML = '';
-            
-            const userNums = Array.from(document.querySelectorAll('.manual-input-zone input'))
-                                  .map(i => i.value.trim()).filter(v => v !== "");
-
+            const userNums = Array.from(document.querySelectorAll('.manual-input-zone input')).map(i => i.value.trim()).filter(v => v !== "");
             rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
                 let numsHTML = [];
                 for(let i=1; i<=20; i++) {
                     let val = r[`號碼${i}`];
-                    let css = userNums.includes(val) ? 'class="highlight"' : '';
-                    numsHTML.push(`<span ${css}>${val}</span>`);
+                    numsHTML.push(`<span ${userNums.includes(val) ? 'class="highlight"' : ''}>${val}</span>`);
                 }
                 tbody.innerHTML += `<tr><td>${r.期別}</td><td>${numsHTML.join(', ')}</td></tr>`;
             });
@@ -127,18 +124,25 @@
         }
 
         function generatePrediction() {
-            let weightedPool = [];
-            currentSortedStats.forEach(item => {
-                let num = parseInt(item[0]);
-                let pct = (item[1] / totalDraws) * 100;
-                let weight = (pct < 15) ? 5 : (pct > 35) ? 0.5 : 2;
-                for(let i = 0; i < weight * 10; i++) weightedPool.push(num);
-            });
-            let result = new Set();
-            while(result.size < parseInt(document.getElementById('num-count').value)) {
-                result.add(weightedPool[Math.floor(Math.random() * weightedPool.length)]);
+            const count = parseInt(document.getElementById('num-count').value);
+            // 策略：依照 15%-35% 統計邊界篩選熱冷號
+            const hot = currentSortedStats.slice(0, 10).map(x => parseInt(x[0]));
+            const cold = currentSortedStats.slice(-10).reverse().map(x => parseInt(x[0]));
+            
+            // 時間策略：20:00 前熱門優先，後冷門優先
+            const now = new Date();
+            const hour = parseInt(now.toLocaleString("en-US", {timeZone: "Asia/Taipei", hour: 'numeric', hour12: false}));
+            const isNight = hour >= 20;
+
+            let result = [];
+            for (let i = 0; i < count; i++) {
+                // 晚上：每3個選2個冷門，1個熱門；白天反之
+                let source = (isNight ? (i % 3 !== 2) : (i % 3 === 2)) ? cold : hot;
+                result.push(source[i % source.length]);
             }
-            document.getElementById('prediction-result').innerText = "推薦: " + Array.from(result).sort((a,b)=>a-b).join(', ');
+            
+            document.getElementById('prediction-result').innerText = (isNight ? "【晚上策略：冷門反彈】 " : "【白天策略：熱門追擊】 ") + 
+                Array.from(new Set(result)).sort((a,b)=>a-b).map(n => String(n).padStart(2, '0')).join(', ');
         }
 
         loadData();
