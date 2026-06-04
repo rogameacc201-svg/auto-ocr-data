@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - 回歸平均分析</title>
+    <title>儀表板 - 時間特性智能選號</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background-color: #f4f7f6; padding: 10px; }
@@ -27,7 +27,7 @@
 <body>
     <div class="container">
         <div class="header-box">
-            <h2>即時儀表板 (回歸平均版)</h2>
+            <h2>即時儀表板 (時間策略版)</h2>
             <div id="live-clock"></div>
         </div>
 
@@ -49,7 +49,7 @@
                     <div id="bottom-stats"></div>
                 </div>
                 <div class="prediction-box">
-                    <h4>智能選號 (回歸平均法)</h4>
+                    <h4>智能選號 (時間自動切換)</h4>
                     <label>選號數量: <input type="number" id="num-count" value="10" min="1" max="20"></label>
                     <button onclick="generatePrediction()">執行選號</button>
                     <p id="prediction-result" style="font-size: 1.2em; font-weight:bold; color:#2c3e50;"></p>
@@ -65,7 +65,7 @@
 
         function updateClock() {
             const now = new Date();
-            document.getElementById('live-clock').innerText = "系統時間: " + now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+            document.getElementById('live-clock').innerText = "台北時間: " + now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
         }
         setInterval(updateClock, 1000);
         updateClock();
@@ -104,8 +104,8 @@
                 }
             });
             currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-            document.getElementById('top-stats').innerHTML = "<h4>熱門 (準備冷卻)</h4><ul>" + currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
-            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (準備反彈)</h4><ul>" + currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${((x[1]/totalDraws)*100).toFixed(1)}%</li>`).join('') + "</ul>";
+            document.getElementById('top-stats').innerHTML = "<h4>熱門 (Top 10)</h4><ul>" + currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (Bottom 10)</h4><ul>" + currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
         }
 
         function renderView(date) {
@@ -122,30 +122,26 @@
 
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
+            const hot = currentSortedStats.slice(0, 10).map(x => parseInt(x[0]));
+            const cold = currentSortedStats.slice(-10).map(x => parseInt(x[0]));
             
-            // 根據「回歸平均」理論建立加權池
-            let weightedPool = [];
-            currentSortedStats.forEach(item => {
-                let num = parseInt(item[0]);
-                let pct = (item[1] / totalDraws) * 100;
-                let weight = 1; 
-
-                // 核心邏輯：冷門反彈權重最高，過熱冷卻權重最低
-                if (pct < 15) weight = 5;      
-                else if (pct > 35) weight = 0.5; 
-                else weight = 2;               
-
-                for(let i = 0; i < weight * 10; i++) weightedPool.push(num);
-            });
+            // 獲取當前小時
+            const now = new Date();
+            const taipeiHour = parseInt(now.toLocaleString("en-US", {timeZone: "Asia/Taipei", hour: 'numeric', hour12: false}));
             
-            let result = new Set();
-            while(result.size < count) {
-                let seed = weightedPool[Math.floor(Math.random() * weightedPool.length)];
-                result.add(seed);
+            // 策略切換：8點(20:00)前為熱門為主，後為冷門為主
+            const isNight = taipeiHour >= 20;
+            let result = [];
+            
+            for (let i = 0; i < count; i++) {
+                // 如果是晚上：每3個號碼中，2個選冷門，1個選熱門；白天則反之
+                let pickFromCold = isNight ? (i % 3 !== 2) : (i % 3 === 2);
+                let source = pickFromCold ? cold : hot;
+                result.push(source[i % source.length]);
             }
             
-            const finalResult = Array.from(result).sort((a, b) => a - b);
-            document.getElementById('prediction-result').innerText = "推薦: " + finalResult.map(n => String(n).padStart(2, '0')).join(', ');
+            const finalResult = Array.from(new Set(result)).sort((a, b) => a - b);
+            document.getElementById('prediction-result').innerText = (isNight ? "【晚上策略：冷門反彈】 " : "【白天策略：熱門追擊】 ") + finalResult.map(n => String(n).padStart(2, '0')).join(', ');
         }
         
         loadData();
