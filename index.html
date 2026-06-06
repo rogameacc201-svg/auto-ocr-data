@@ -24,7 +24,6 @@
         td { border: 1px solid #eee; padding: 8px; text-align: center; }
         .highlight { border: 2px solid red !important; color: red; font-weight: bold; padding: 2px; border-radius: 3px; }
         
-        /* 統計區塊排版優化 */
         .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; }
         .stats-container { display: flex; flex-direction: column; gap: 15px; }
         .stats-row { display: flex; justify-content: space-between; gap: 10px; }
@@ -61,7 +60,7 @@
                     <p id="prediction-result" style="font-weight:bold;"></p>
                 </div>
                 <div class="stats-box" id="stats-area">
-                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -128,11 +127,11 @@
             document.getElementById('stats-area').innerHTML = `
                 <div class="stats-container">
                     <div class="stats-row">
-                        <div class="stats-col"><h4>熱門 (Top 10)</h4><ul>${Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('')}</ul></div>
+                        <div class="stats-col"><h4>熱門 (Top 10)</h4><ul>${Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次 (${((x[1]/totalDraws)*100).toFixed(1)}%)</li>`).join('')}</ul></div>
                         <div class="stats-col"><h4>連續出現</h4><ul>${Object.entries(streak).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: 連續 ${x[1]} 期</li>`).join('')}</ul></div>
                     </div>
                     <div class="stats-row">
-                        <div class="stats-col"><h4>冷門 (Top 10)</h4><ul>${Object.entries(counts).sort((a,b)=>a[1]-b[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('')}</ul></div>
+                        <div class="stats-col"><h4>冷門 (Top 10)</h4><ul>${Object.entries(counts).sort((a,b)=>a[1]-b[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次 (${((x[1]/totalDraws)*100).toFixed(1)}%)</li>`).join('')}</ul></div>
                         <div class="stats-col"><h4>遺漏次數</h4><ul>${Object.entries(gap).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: 遺漏 ${x[1]} 期</li>`).join('')}</ul></div>
                     </div>
                 </div>
