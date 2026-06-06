@@ -18,12 +18,12 @@
         .content-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
         #left-pane { flex: 2; min-width: 300px; }
         #right-pane { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 20px; }
-        #table-container { height: 500px; overflow-y: auto; background: white; border: 1px solid #ddd; }
+        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.85em; }
+        .side-by-side { display: flex; justify-content: space-between; gap: 10px; }
         table { width: 100%; border-collapse: collapse; }
         th { position: sticky; top: 0; background: #2c3e50; color: white; padding: 10px; }
         td { border: 1px solid #eee; padding: 8px; text-align: center; }
         .highlight { border: 2px solid red !important; color: red; font-weight: bold; padding: 2px; border-radius: 3px; }
-        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.85em; }
         .prediction-box { background: #e8f6f3; padding: 15px; border-radius: 8px; border: 1px solid #1abc9c; }
         ul { padding-left: 20px; margin: 5px 0; }
         h4 { margin: 10px 0 5px 0; color: #2c3e50; border-bottom: 1px solid #eee; }
@@ -43,19 +43,24 @@
         </div>
         <div class="content-wrapper">
             <div id="left-pane">
-                <div id="table-container">
+                <div id="table-container" style="height: 500px; overflow-y: auto; background: white; border: 1px solid #ddd;">
                     <table id="draws-table"><thead><tr><th>期別</th><th>號碼</th></tr></thead><tbody></tbody></table>
                 </div>
             </div>
             <div id="right-pane">
-                <div class="stats-box" id="stats-area">
-                    <div id="top-stats"></div>
-                    <div id="bottom-stats"></div>
+                <div class="stats-box">
+                    <div class="side-by-side">
+                        <div id="top-stats"></div>
+                        <div id="streak-stats"></div>
+                    </div>
+                    <hr>
+                    <div class="side-by-side">
+                        <div id="bottom-stats"></div>
+                        <div id="gap-stats"></div>
+                    </div>
                 </div>
                 <div class="prediction-box">
                     <h4>智能選號</h4>
-                    <input type="number" id="num-count" value="10" style="width:50px;">
-                    <button onclick="generatePrediction()">執行選號</button>
                     <p id="prediction-result" style="font-weight:bold;"></p>
                 </div>
             </div>
@@ -71,9 +76,7 @@
             inputZone.appendChild(inp);
         }
 
-        let allGroupedData = {}, currentSortedStats = [], totalDraws = 0;
-
-        setInterval(() => loadData(), 60000);
+        let allGroupedData = {};
 
         function loadData() {
             Papa.parse("data.csv?t=" + new Date().getTime(), {
@@ -88,58 +91,14 @@
                     }, {});
                     const dates = Object.keys(allGroupedData).sort().reverse();
                     const select = document.getElementById('date-select');
-                    const currentVal = select.value;
-                    select.innerHTML = '';
                     dates.forEach(d => {
                         let opt = document.createElement('option');
                         opt.value = d; opt.innerText = d;
                         select.appendChild(opt);
                     });
-                    select.value = (currentVal && dates.includes(currentVal)) ? currentVal : dates[0];
-                    renderView(select.value);
+                    renderView(dates[0]);
                 }
             });
-        }
-
-        function calculateStats(rows) {
-            let counts = {}; totalDraws = rows.length;
-            rows.forEach(r => { for(let i=1; i<=20; i++) { let val = r[`號碼${i}`]; if(val) counts[val] = (counts[val] || 0) + 1; } });
-            currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-            
-            document.getElementById('top-stats').innerHTML = "<h4>熱門 (Top 10)</h4><ul>" + 
-                currentSortedStats.slice(0,10).map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/totalDraws)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
-            document.getElementById('bottom-stats').innerHTML = "<h4>冷門 (Top 10)</h4><ul>" + 
-                currentSortedStats.slice(-10).reverse().map(x => `<li>${x[0]}: ${x[1]}次 (${((x[1]/totalDraws)*100).toFixed(1)}%)</li>`).join('') + "</ul>";
-            
-            getAdvancedStats(rows);
-        }
-
-        function getAdvancedStats(rows) {
-            let currentCounts = {}; let gapCounts = {};
-            let allNums = Array.from({length: 80}, (_, i) => String(i + 1));
-            
-            allNums.forEach(n => {
-                let streak = 0;
-                for(let i=0; i<rows.length; i++) {
-                    let rowNums = [];
-                    for(let j=1; j<=20; j++) rowNums.push(String(rows[i][`號碼${j}`]));
-                    if(rowNums.includes(n)) streak++;
-                    else break;
-                }
-                if(streak > 1) currentCounts[n] = streak;
-                
-                let gap = 0;
-                for(let i=0; i<rows.length; i++) {
-                    let rowNums = [];
-                    for(let j=1; j<=20; j++) rowNums.push(String(rows[i][`號碼${j}`]));
-                    if(rowNums.includes(n)) break;
-                    gap++;
-                }
-                if(gap > 0) gapCounts[n] = gap;
-            });
-
-            document.getElementById('top-stats').innerHTML += "<h4>連續出現 (Top 10)</h4><ul>" + Object.entries(currentCounts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x => `<li>${x[0]}: 連續 ${x[1]} 期</li>`).join('') + "</ul>";
-            document.getElementById('bottom-stats').innerHTML += "<h4>遺漏次數 (Top 10)</h4><ul>" + Object.entries(gapCounts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x => `<li>${x[0]}: 遺漏 ${x[1]} 期</li>`).join('') + "</ul>";
         }
 
         function renderView(date) {
@@ -149,37 +108,41 @@
             tbody.innerHTML = '';
             const userNums = Array.from(document.querySelectorAll('.manual-input-zone input')).map(i => i.value.trim()).filter(v => v !== "");
             rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
-                let numsHTML = [];
+                let nums = [];
                 for(let i=1; i<=20; i++) {
                     let val = String(r[`號碼${i}`]);
-                    numsHTML.push(`<span ${userNums.includes(val) ? 'class="highlight"' : ''}>${val}</span>`);
+                    nums.push(`<span ${userNums.includes(val) ? 'class="highlight"' : ''}>${val}</span>`);
                 }
-                tbody.innerHTML += `<tr><td>${r.期別}</td><td>${numsHTML.join(', ')}</td></tr>`;
+                tbody.innerHTML += `<tr><td>${r.期別}</td><td>${nums.join(', ')}</td></tr>`;
             });
             calculateStats(rows);
         }
 
-        function generatePrediction() {
-            const count = parseInt(document.getElementById('num-count').value);
-            const hot = currentSortedStats.slice(0, 10).map(x => parseInt(x[0]));
-            const cold = currentSortedStats.slice(-10).reverse().map(x => parseInt(x[0]));
-            const hour = new Date().getHours();
-            const isNight = hour >= 20;
-            let result = [];
-            for (let i = 0; i < count; i++) {
-                let source = (isNight ? (i % 3 !== 2) : (i % 3 === 2)) ? cold : hot;
-                result.push(source[i % source.length]);
-            }
-            document.getElementById('prediction-result').innerText = (isNight ? "【晚上策略：冷門】 " : "【白天策略：熱門】 ") + 
-                Array.from(new Set(result)).sort((a,b)=>a-b).join(', ');
+        function calculateStats(rows) {
+            let counts = {}, streak = {}, gap = {};
+            let allNums = Array.from({length: 80}, (_, i) => String(i + 1));
+            rows.forEach(r => { for(let i=1; i<=20; i++) { let v = String(r[`號碼${i}`]); counts[v] = (counts[v] || 0) + 1; } });
+            
+            allNums.forEach(n => {
+                let s = 0; for(let i=0; i<rows.length; i++) {
+                    let rNums = []; for(let j=1; j<=20; j++) rNums.push(String(rows[i][`號碼${j}`]));
+                    if(rNums.includes(n)) s++; else break;
+                }
+                if(s > 1) streak[n] = s;
+                let g = 0; for(let i=0; i<rows.length; i++) {
+                    let rNums = []; for(let j=1; j<=20; j++) rNums.push(String(rows[i][`號碼${j}`]));
+                    if(rNums.includes(n)) break; g++;
+                }
+                if(g > 0) gap[n] = g;
+            });
+
+            document.getElementById('top-stats').innerHTML = "<h4>熱門</h4><ul>" + Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
+            document.getElementById('streak-stats').innerHTML = "<h4>連出</h4><ul>" + Object.entries(streak).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
+            document.getElementById('bottom-stats').innerHTML = "<h4>冷門</h4><ul>" + Object.entries(counts).sort((a,b)=>a[1]-b[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
+            document.getElementById('gap-stats').innerHTML = "<h4>未出</h4><ul>" + Object.entries(gap).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('') + "</ul>";
         }
 
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('live-clock').innerText = "台北時間: " + now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+        setInterval(() => loadData(), 60000);
         loadData();
     </script>
 </body>
