@@ -11,7 +11,7 @@
         .header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         #live-clock { font-size: 1.1em; color: #d35400; font-weight: bold; }
         #controls { margin-bottom: 20px; text-align: center; }
-        select { padding: 10px; font-size: 16px; margin-right: 10px; }
+        select { padding: 5px; font-size: 14px; }
         .refresh-btn { padding: 10px 20px; cursor: pointer; background: #27ae60; color: white; border: none; border-radius: 4px; }
         .manual-input-zone { margin: 15px 0; display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; }
         .manual-input-zone input { width: 35px; padding: 5px; text-align: center; border: 1px solid #999; }
@@ -66,8 +66,8 @@
                 <div class="stats-box">
                     <h4>自訂區間篩選統計</h4>
                     <div style="margin-bottom:10px; font-size:0.8em;">
-                        <input type="text" id="start-date" placeholder="2026/06/01" style="width:80px;"> 至 
-                        <input type="text" id="end-date" placeholder="2026/06/30" style="width:80px;">
+                        <select id="start-date-select"></select> 至 
+                        <select id="end-date-select"></select>
                         <button onclick="calculateFilterStats()">計算</button>
                     </div>
                     <div id="filter-area"></div>
@@ -100,16 +100,22 @@
                         return acc;
                     }, {});
                     const dates = Object.keys(allGroupedData).sort().reverse();
-                    const select = document.getElementById('date-select');
-                    const currentVal = select.value;
-                    select.innerHTML = '';
-                    dates.forEach(d => {
-                        let opt = document.createElement('option');
-                        opt.value = d; opt.innerText = d;
-                        select.appendChild(opt);
+                    
+                    // 更新所有選單
+                    const selects = ['date-select', 'start-date-select', 'end-date-select'];
+                    selects.forEach(id => {
+                        const select = document.getElementById(id);
+                        const currentVal = select.value;
+                        select.innerHTML = '';
+                        dates.forEach(d => {
+                            let opt = document.createElement('option');
+                            opt.value = d; opt.innerText = d;
+                            select.appendChild(opt);
+                        });
+                        if (currentVal && dates.includes(currentVal)) select.value = currentVal;
                     });
-                    select.value = (currentVal && dates.includes(currentVal)) ? currentVal : dates[0];
-                    renderView(select.value);
+                    
+                    renderView(document.getElementById('date-select').value);
                 }
             });
         }
@@ -155,9 +161,9 @@
         }
 
         function calculateFilterStats() {
-            const start = document.getElementById('start-date').value;
-            const end = document.getElementById('end-date').value;
-            if (!start || !end) return;
+            const start = document.getElementById('start-date-select').value;
+            const end = document.getElementById('end-date-select').value;
+            if (start > end) { alert("開始日期不能晚於結束日期"); return; }
             const filtered = allRows.filter(r => r.日期 >= start && r.日期 <= end);
             updateStatsUI(filtered, 'filter-area');
         }
