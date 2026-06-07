@@ -24,13 +24,13 @@
         td { border: 1px solid #eee; padding: 8px; text-align: center; }
         .highlight { border: 2px solid red !important; color: red; font-weight: bold; padding: 2px; border-radius: 3px; }
         
-        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; }
+        .stats-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; }
         .stats-container { display: flex; flex-direction: column; gap: 15px; }
         .stats-row { display: flex; justify-content: space-between; gap: 10px; }
         .stats-col { width: 48%; }
         
-        .prediction-box { background: #e8f6f3; padding: 15px; border-radius: 8px; border: 1px solid #1abc9c; }
-        ul { padding-left: 20px; margin: 5px 0; font-size: 0.9em; list-style-type: disc; }
+        .prediction-box { background: #e8f6f3; padding: 15px; border-radius: 8px; border: 1px solid #1abc9c; margin-bottom: 10px; }
+        ul { padding-left: 20px; margin: 5px 0; font-size: 0.85em; list-style-type: disc; }
         h4 { margin: 5px 0; color: #2c3e50; border-bottom: 1px solid #eee; }
     </style>
 </head>
@@ -59,7 +59,18 @@
                     <button onclick="generatePrediction()">執行選號</button>
                     <p id="prediction-result" style="font-weight:bold;"></p>
                 </div>
-                <div class="stats-box" id="stats-area">
+                <div class="stats-box">
+                    <h4>當日統計</h4>
+                    <div id="stats-area"></div>
+                </div>
+                <div class="stats-box">
+                    <h4>自訂區間篩選統計</h4>
+                    <div style="margin-bottom:10px; font-size:0.8em;">
+                        <input type="text" id="start-date" placeholder="2026/06/01" style="width:80px;"> 至 
+                        <input type="text" id="end-date" placeholder="2026/06/30" style="width:80px;">
+                        <button onclick="calculateFilterStats()">計算</button>
+                    </div>
+                    <div id="filter-area"></div>
                 </div>
             </div>
         </div>
@@ -74,15 +85,14 @@
             inputZone.appendChild(inp);
         }
 
-        let allGroupedData = {}, currentSortedStats = [], totalDraws = 0;
-
-        setInterval(() => loadData(), 60000);
+        let allGroupedData = {}, allRows = [], currentSortedStats = [];
 
         function loadData() {
             Papa.parse("data.csv?t=" + new Date().getTime(), {
                 download: true, header: true, skipEmptyLines: true,
                 complete: function(results) {
-                    allGroupedData = results.data.reduce((acc, r) => {
+                    allRows = results.data;
+                    allGroupedData = allRows.reduce((acc, r) => {
                         if (r.日期) {
                             if (!acc[r.日期]) acc[r.日期] = [];
                             acc[r.日期].push(r);
@@ -104,39 +114,25 @@
             });
         }
 
-        function calculateStats(rows) {
+        // 核心統計渲染邏輯
+        function updateStatsUI(rows, targetId) {
             let counts = {}, streak = {}, gap = {};
             let allNums = Array.from({length: 80}, (_, i) => String(i + 1));
-            totalDraws = rows.length;
-            
+            let total = rows.length || 1;
             rows.forEach(r => { for(let i=1; i<=20; i++) { let v = String(r[`號碼${i}`]); counts[v] = (counts[v] || 0) + 1; } });
-            
             allNums.forEach(n => {
-                let s = 0; for(let i=0; i<rows.length; i++) {
-                    let rNums = []; for(let j=1; j<=20; j++) rNums.push(String(rows[i][`號碼${j}`]));
-                    if(rNums.includes(n)) s++; else break;
-                }
+                let s = 0; for(let i=0; i<rows.length; i++) { let rNums = []; for(let j=1; j<=20; j++) rNums.push(String(rows[i][`號碼${j}`])); if(rNums.includes(n)) s++; else break; }
                 if(s > 1) streak[n] = s;
-                let g = 0; for(let i=0; i<rows.length; i++) {
-                    let rNums = []; for(let j=1; j<=20; j++) rNums.push(String(rows[i][`號碼${j}`]));
-                    if(rNums.includes(n)) break; g++;
-                }
+                let g = 0; for(let i=0; i<rows.length; i++) { let rNums = []; for(let j=1; j<=20; j++) rNums.push(String(rows[i][`號碼${j}`])); if(rNums.includes(n)) break; g++; }
                 if(g > 0) gap[n] = g;
             });
-
-            document.getElementById('stats-area').innerHTML = `
+            document.getElementById(targetId).innerHTML = `
                 <div class="stats-container">
-                    <div class="stats-row">
-                        <div class="stats-col"><h4>熱門 (Top 10)</h4><ul>${Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次 (${((x[1]/totalDraws)*100).toFixed(1)}%)</li>`).join('')}</ul></div>
-                        <div class="stats-col"><h4>連續出現</h4><ul>${Object.entries(streak).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: 連續 ${x[1]} 期</li>`).join('')}</ul></div>
-                    </div>
-                    <div class="stats-row">
-                        <div class="stats-col"><h4>冷門 (Top 10)</h4><ul>${Object.entries(counts).sort((a,b)=>a[1]-b[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次 (${((x[1]/totalDraws)*100).toFixed(1)}%)</li>`).join('')}</ul></div>
-                        <div class="stats-col"><h4>遺漏次數</h4><ul>${Object.entries(gap).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: 遺漏 ${x[1]} 期</li>`).join('')}</ul></div>
-                    </div>
+                    <div class="stats-row"><div class="stats-col"><h4>熱門</h4><ul>${Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('')}</ul></div><div class="stats-col"><h4>連續</h4><ul>${Object.entries(streak).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}期</li>`).join('')}</ul></div></div>
+                    <div class="stats-row"><div class="stats-col"><h4>冷門</h4><ul>${Object.entries(counts).sort((a,b)=>a[1]-b[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('')}</ul></div><div class="stats-col"><h4>遺漏</h4><ul>${Object.entries(gap).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}期</li>`).join('')}</ul></div></div>
                 </div>
             `;
-            currentSortedStats = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            return Object.entries(counts).sort((a, b) => b[1] - a[1]);
         }
 
         function renderView(date) {
@@ -147,28 +143,30 @@
             const userNums = Array.from(document.querySelectorAll('.manual-input-zone input')).map(i => i.value.trim()).filter(v => v !== "");
             rows.sort((a, b) => b.期別 - a.期別).forEach(r => {
                 let numsHTML = [];
-                for(let i=1; i<=20; i++) {
-                    let val = String(r[`號碼${i}`]);
-                    numsHTML.push(`<span ${userNums.includes(val) ? 'class="highlight"' : ''}>${val}</span>`);
-                }
+                for(let i=1; i<=20; i++) { let val = String(r[`號碼${i}`]); numsHTML.push(`<span ${userNums.includes(val) ? 'class="highlight"' : ''}>${val}</span>`); }
                 tbody.innerHTML += `<tr><td>${r.期別}</td><td>${numsHTML.join(', ')}</td></tr>`;
             });
-            calculateStats(rows);
+            currentSortedStats = updateStatsUI(rows, 'stats-area');
+        }
+
+        function calculateFilterStats() {
+            const start = document.getElementById('start-date').value;
+            const end = document.getElementById('end-date').value;
+            const filtered = allRows.filter(r => r.日期 >= start && r.日期 <= end);
+            updateStatsUI(filtered, 'filter-area');
         }
 
         function generatePrediction() {
             const count = parseInt(document.getElementById('num-count').value);
             const hot = currentSortedStats.slice(0, 10).map(x => parseInt(x[0]));
             const cold = currentSortedStats.slice(-10).reverse().map(x => parseInt(x[0]));
-            const hour = new Date().getHours();
-            const isNight = hour >= 20;
+            const isNight = new Date().getHours() >= 20;
             let result = [];
             for (let i = 0; i < count; i++) {
                 let source = (isNight ? (i % 3 !== 2) : (i % 3 === 2)) ? cold : hot;
                 result.push(source[i % source.length]);
             }
-            document.getElementById('prediction-result').innerText = (isNight ? "【晚上策略：冷門】 " : "【白天策略：熱門】 ") + 
-                Array.from(new Set(result)).sort((a,b)=>a-b).join(', ');
+            document.getElementById('prediction-result').innerText = (isNight ? "【晚上策略：冷門】 " : "【白天策略：熱門】 ") + Array.from(new Set(result)).sort((a,b)=>a-b).join(', ');
         }
 
         function updateClock() {
