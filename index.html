@@ -114,7 +114,6 @@
             });
         }
 
-        // 核心統計渲染邏輯
         function updateStatsUI(rows, targetId) {
             let counts = {}, streak = {}, gap = {};
             let allNums = Array.from({length: 80}, (_, i) => String(i + 1));
@@ -128,8 +127,14 @@
             });
             document.getElementById(targetId).innerHTML = `
                 <div class="stats-container">
-                    <div class="stats-row"><div class="stats-col"><h4>熱門</h4><ul>${Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('')}</ul></div><div class="stats-col"><h4>連續</h4><ul>${Object.entries(streak).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}期</li>`).join('')}</ul></div></div>
-                    <div class="stats-row"><div class="stats-col"><h4>冷門</h4><ul>${Object.entries(counts).sort((a,b)=>a[1]-b[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次</li>`).join('')}</ul></div><div class="stats-col"><h4>遺漏</h4><ul>${Object.entries(gap).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}期</li>`).join('')}</ul></div></div>
+                    <div class="stats-row">
+                        <div class="stats-col"><h4>熱門</h4><ul>${Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('')}</ul></div>
+                        <div class="stats-col"><h4>連續</h4><ul>${Object.entries(streak).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: 連續 ${x[1]} 期</li>`).join('')}</ul></div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stats-col"><h4>冷門</h4><ul>${Object.entries(counts).sort((a,b)=>a[1]-b[1]).slice(0,10).map(x=>`<li>${x[0]}: ${x[1]}次 (${((x[1]/total)*100).toFixed(1)}%)</li>`).join('')}</ul></div>
+                        <div class="stats-col"><h4>遺漏</h4><ul>${Object.entries(gap).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>`<li>${x[0]}: 遺漏 ${x[1]} 期</li>`).join('')}</ul></div>
+                    </div>
                 </div>
             `;
             return Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -152,6 +157,7 @@
         function calculateFilterStats() {
             const start = document.getElementById('start-date').value;
             const end = document.getElementById('end-date').value;
+            if (!start || !end) return;
             const filtered = allRows.filter(r => r.日期 >= start && r.日期 <= end);
             updateStatsUI(filtered, 'filter-area');
         }
